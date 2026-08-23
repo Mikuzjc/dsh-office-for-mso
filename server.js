@@ -207,7 +207,10 @@ const server = http.createServer(async (req, res) => {
     if (pending && pending.commandId === body.commandId) {
       const r = pending.resolve;
       pending = null;
-      r(body.ok === false ? { ok: false, error: body.error || 'add-in error' } : { ok: true, result: body.result });
+      // 错误也转发 code/result（如 confirm_required 的 result.preview），否则 AI 拿不到预览
+      r(body.ok === false
+        ? { ok: false, error: body.error || 'add-in error', code: body.code, result: body.result }
+        : { ok: true, result: body.result });
       sendJson(res, 200, { ok: true });
     } else {
       sendJson(res, 404, { ok: false, error: 'unknown or expired commandId' });
