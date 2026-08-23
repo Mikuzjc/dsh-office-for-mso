@@ -2,7 +2,7 @@
 
 > [English](README.en.md) · [日本語](README.ja.md) · 中文
 
-**DeepSeek Harness（DSH）的 Office 插件/技能（v1.3）**：在 DSH 会话里发指令，通过 Office 加载项操控你**正在打开的** Word / Excel / PowerPoint 文档——读取、写入、格式化、结构操作、图表/公式/批注，接近 Copilot for Office 的常见工作流。
+**DeepSeek Harness（DSH）的 Microsoft Office 插件/技能（v1.3）**：在 DSH 会话里发指令，通过 Microsoft Office 加载项操控你**正在打开的** Word / Excel / PowerPoint 文档——读取、写入、格式化、结构操作、图表/公式/批注，接近 Copilot for Office 的常见工作流。**（本项目的 Office 指 Microsoft Office，不含 WPS 等兼容产品）**
 
 ```
 你 ──DSH 会话发指令──▶ AI(agent) ──POST──▶ 桥接服务 localhost:3000
@@ -25,7 +25,7 @@
 
 - **本技能是 [DeepSeek Harness（DSH）](https://github.com/search?q=deepseek+harness) 的插件/技能**：需先安装 DSH（DeepSeek Harness，基于 Node.js 的 AI 会话环境），并在 DSH 会话中使用本技能
 - **Node.js ≥ 18**（DSH 与桥接服务都依赖）
-- **Office 桌面版**（Word / Excel / PowerPoint，Windows 或 macOS）
+- **Microsoft Office 桌面版**（Word / Excel / PowerPoint，Windows 或 macOS）
 
 ### 1. 克隆仓库并安装（推荐：一键常驻服务）
 
@@ -41,7 +41,7 @@ npm run setup   # 一键：注册计划任务（登录自启、静默常驻）+ 
 **Windows 下服务启动时会自动注册加载项（WEF 注册表）**——首次请**关闭并重新打开 Office 文档**，窗格即出现；macOS 需用 Office 菜单手动加载（见 1.2/1.3）。
 （下文路径示例均以你的实际项目目录为准。）
 
-### 2. 把加载项加载到 Office（sideload）
+### 2. 把加载项加载到 Microsoft Office（sideload）
 
 > **平台**：核心（server.js + 加载项）仅依赖 Node.js，Windows / macOS 均可运行；`install.ps1`/计划任务为 Windows 专属的**可选**自动托管，macOS 手动 `node server.js` 即可。
 

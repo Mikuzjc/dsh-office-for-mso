@@ -2,7 +2,7 @@
 
 > [中文](README.md) · [English](README.en.md) · 日本語
 
-**DeepSeek Harness（DSH）の Office プラグイン/スキル（v1.3）**：DSH セッションからコマンドを発行し、Office アドイン経由で**現在開いている** Word / Excel / PowerPoint ドキュメントを操作します——読み取り、書き込み、書式設定、構造操作、グラフ・数式・コメントなど、Microsoft Copilot for Office の一般的なワークフローに迫ります。
+**DeepSeek Harness（DSH）の Microsoft Office プラグイン/スキル（v1.3）**：DSH セッションからコマンドを発行し、Microsoft Office アドイン経由で**現在開いている** Word / Excel / PowerPoint ドキュメントを操作します——読み取り、書き込み、書式設定、構造操作、グラフ・数式・コメントなど、Microsoft Copilot for Office の一般的なワークフローに迫ります。**（本プロジェクトの Office は Microsoft Office を指し、WPS などの互換製品は対象外）**
 
 ```
 あなた ──DSHセッション──▶ AI(agent) ──POST──▶ ブリッジサービス localhost:3000
@@ -25,7 +25,7 @@
 
 - **本スキルは [DeepSeek Harness（DSH）](https://github.com/search?q=deepseek+harness) のプラグイン/スキルです**：先に DSH（DeepSeek Harness、Node.js ベースの AI セッション環境）をインストールし、DSH セッション内で本スキルを使用します
 - **Node.js ≥ 18**（DSH とブリッジサービスの両方が必要）
-- **Office デスクトップ**（Word / Excel / PowerPoint、Windows または macOS）
+- **Microsoft Office デスクトップ**（Word / Excel / PowerPoint、Windows または macOS）
 
 ### 1.1 クローンしてインストール（推奨：ワンクリック常駐サービス）
 
@@ -41,7 +41,7 @@ npm run setup   # ワンクリック：タスクスケジューラ登録（ロ�
 **Windows では起動時にアドインが自動登録（WEF レジストリ）されます**——初回は**Office ドキュメントを閉じて開き直す**とペインが表示されます。macOS では Office メニューから手動で読み込んでください（1.2/1.3 参照）。
 （以降のパス例はすべてご自身の実際のプロジェクトディレクトリを指します。）
 
-### 1.2 アドインを Office にサイドロード
+### 1.2 アドインを Microsoft Office にサイドロード
 
 > **プラットフォーム**：中核（server.js + アドイン）は Node.js のみ必要で Windows / macOS で動作（macOS の Office デスクトップもアドインのサイドロードに対応）。`install.ps1`/タスクスケジューラは Windows 専用の**任意**の自動ホスティング。macOS では手動で `node server.js` を実行。
 

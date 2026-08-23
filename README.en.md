@@ -2,7 +2,7 @@
 
 > [中文](README.md) · [日本語](README.ja.md) · English
 
-**A plugin/skill for DeepSeek Harness (DSH) (v1.3)**: Issue commands from a DSH session to control your **currently open** Word / Excel / PowerPoint documents through an Office add-in — reading, writing, formatting, structural operations, charts/formulas/comments — approaching common Microsoft Copilot for Office workflows.
+**A plugin/skill for DeepSeek Harness (DSH) (v1.3)**: Issue commands from a DSH session to control your **currently open** Word / Excel / PowerPoint documents through a **Microsoft Office** add-in — reading, writing, formatting, structural operations, charts/formulas/comments — approaching common Microsoft Copilot for Office workflows. **(In this project, "Office" means Microsoft Office, not WPS or other compatible suites.)**
 
 ```
 You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service localhost:3000
@@ -25,7 +25,7 @@ You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service loca
 
 - **This is a plugin/skill for [DeepSeek Harness (DSH)](https://github.com/search?q=deepseek+harness)**: you must install DSH (DeepSeek Harness, a Node.js-based AI session environment) first, and use this skill from a DSH session
 - **Node.js ≥ 18** (required by both DSH and the bridge service)
-- **Office desktop** (Word / Excel / PowerPoint, Windows or macOS)
+- **Microsoft Office desktop** (Word / Excel / PowerPoint, Windows or macOS)
 
 ### 1.1 Clone and install (recommended: one-click persistent service)
 
@@ -41,7 +41,7 @@ npm run setup   # one-click: register Scheduled Task (auto-start at logon, silen
 **On Windows the add-in is auto-registered on startup (WEF registry)** — on first run **close and reopen the Office document** and the pane appears; on macOS load manually via the Office menu (see 1.2/1.3).
 (All path examples below refer to your actual project directory.)
 
-### 1.2 Sideload the add-in into Office
+### 1.2 Sideload the add-in into Microsoft Office
 
 > **Platforms**: the core (server.js + add-in) only requires Node.js and runs on Windows / macOS (Office desktop on macOS supports add-in sideload too); `install.ps1`/Scheduled Task is an **optional** Windows-only auto-hosting — on macOS just run `node server.js` manually.
 
