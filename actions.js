@@ -60,6 +60,36 @@
       }
       return errResult('unsupported_host', 'read_selection withStyles not supported in PowerPoint');
     }
+    // Word：有选中返回选中文本；未选中返回光标左右各 5 字（XXXXX | XXXXX，| = 光标位置）
+    if (host === 'Word') {
+      try {
+        return await Word.run(async (ctx) => {
+          const sel = ctx.document.getSelection();
+          sel.load('text, start');
+          await ctx.sync();
+          const text = sel.text || '';
+          if (text) return okResult({ text });
+          const pos = sel.start;
+          if (pos === undefined || pos === null) return okResult({ text: '' });
+          const body = ctx.document.body;
+          // 未选中：取光标所在段落，段内定位取左右各 5 字；定位失败则退回报整段
+          const para = sel.paragraphs.getFirst();
+          const pr = para.getRange();
+          pr.load('start');
+          para.load('text');
+          await ctx.sync();
+          const pt = para.text || '';
+          if (!pt) return okResult({ text: '' });
+          if (pr.start !== undefined) {
+            const rel = Math.max(0, Math.min(pt.length, pos - pr.start));
+            const s = Math.max(0, rel - 5);
+            const e = Math.min(pt.length, rel + 5);
+            return okResult({ text: pt.slice(s, rel) + ' | ' + pt.slice(rel, e) });
+          }
+          return okResult({ text: pt });
+        });
+      } catch (e) { return errResult('execution', String(e && e.message || e)); }
+    }
     return getSelectionTextAsync();
   }
 

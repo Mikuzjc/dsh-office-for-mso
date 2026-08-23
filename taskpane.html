@@ -34,16 +34,16 @@
       <option value="ask">审批模式</option>
     </select>
   </div>
+  <div class="meta">窗格承载 Office.js 执行：自动模式覆盖操作自动执行；审批模式需在此审批。窗格须保持开启。</div>
+  <div style="margin-top:8px"><strong>最近执行日志</strong></div>
+  <div id="log">(空)</div>
   <div id="approval">
     <div class="title">⚠️ 待确认的覆盖操作</div>
     <div class="meta" id="approval-action">-</div>
     <div class="preview" id="approval-preview">(读取预览中…)</div>
-    <button id="approval-confirm">✅ 确认执行</button>
-    <button id="approval-reject">✕ 拒绝</button>
+    <button id="approval-confirm">更改</button>
+    <button id="approval-reject">拒绝</button>
   </div>
-  <div class="meta">窗格承载 Office.js 执行：自动模式覆盖操作自动执行；审批模式需在此审批。窗格须保持开启。</div>
-  <div style="margin-top:8px"><strong>最近执行日志</strong></div>
-  <div id="log">(空)</div>
   <script src="taskpane.js"></script>
 </body>
 </html>
