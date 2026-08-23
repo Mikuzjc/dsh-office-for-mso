@@ -46,6 +46,7 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 
 - **破坏性操作先预览**：`replace_all` / `remove_empty_paragraphs` / `delete_sheet` 传 `dryRun: true` 查看影响范围，用户确认后再执行
 - **⚠️ 删空行有风险（实测踩坑）**：`remove_empty_paragraphs` 删除空段落可能**破坏文档的节/样式分隔**（Word 会因此自动重排小节、打乱格式）。执行前**必须 dryRun 预览 + 明确告知用户风险**；建议仅在"确实需要清理多余空行"且用户确认后执行，文档结构复杂（含分节符/多级标题）时宁可保守
+- **⚠️ 写入不要多加空行（实测踩坑）**：向 Word 插入/追加段落时，**不要**在段落之间插入多余的空段落——Word 段落间距应由段落格式（间距/段后）控制，多余空行会导致 Word 自动重排、填充小节、打乱格式。`insert_paragraph` 一次一个段落、连续段落间不加空行；需要视觉间距时说明用段落格式，而非空行段落
 - **写入后检查样式**：向 Word 写入内容（insert_paragraph / write_selection / append_text）后，用 `read_styles` / `read_document` 检查结果，样式不对时用 `format_selection` / `apply_style` 修正（用户常抱怨"写入后样式不对"）
 - **删空段落保护**：自动跳过含图片的段落与文档结尾段（曾误删流程图，已修复）
 - **环境边界**（本机实测）：Word 表格插入 / paragraphFormat / 批注 不可用（返回 `requirement`）；PPT 只能读（全文件文本 / 备注），不能新建幻灯片 / 改排版；Excel 基本全功能。换机器 / 更新 Office 可能不同——收到 `requirement`/`unsupported` 时如实降级，不要硬来
