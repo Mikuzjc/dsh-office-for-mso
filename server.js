@@ -91,6 +91,36 @@ function getCodeVersion() {
   } catch (e) { return '0'; }
 }
 
+// ---- 启动时自动 sideload 加载项（Windows：写入 HKCU WEF Developer 注册表，普通权限即可）----
+// 让 `node server.js` 一步完成：启动服务 + 注册加载项。macOS/其他平台跳过（Office 菜单手动加载）。
+function ensureSideloaded() {
+  if (process.platform !== 'win32') {
+    console.log('[dsh-office] 非 Windows 平台，跳过加载项自动注册（请用 Office 菜单手动加载）');
+    return;
+  }
+  const { spawnSync } = require('node:child_process');
+  const reg = (args) => spawnSync('reg', args, { stdio: 'ignore', windowsHide: true }).status === 0;
+  try {
+    const manifest = path.join(ROOT, 'manifest.xml');
+    const xml = fs.readFileSync(manifest, 'utf8');
+    const m = xml.match(/<Id>\s*([0-9a-fA-F-]{36})\s*<\/Id>/);
+    if (!m) { console.log('[dsh-office] manifest.xml 缺少 <Id>，跳过自动注册'); return; }
+    const guid = m[1];
+    const key = 'HKCU\\Software\\Microsoft\\Office\\16.0\\WEF\\Developer';
+    if (reg(['query', key, '/v', guid])) {
+      console.log(`[dsh-office] 加载项已注册 (WEF: ${guid})`);
+      return;
+    }
+    if (reg(['add', key, '/v', guid, '/t', 'REG_SZ', '/d', manifest, '/f'])) {
+      console.log('[dsh-office] 加载项已自动注册 → 关闭并重新打开 Office 文档后，窗格将出现');
+    } else {
+      console.log('[dsh-office] 加载项自动注册失败（可手动运行 sideload.ps1）');
+    }
+  } catch (e) {
+    console.log('[dsh-office] 加载项自动注册跳过:', e.message);
+  }
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -229,4 +259,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[dsh-office-bridge] listening on http://127.0.0.1:${PORT}`);
   console.log(`  add-in taskpane: http://127.0.0.1:${PORT}/taskpane.html`);
   console.log(`  command endpoint: POST /office/command  (timeout ${COMMAND_TIMEOUT_MS}ms, host-routed)`);
+  ensureSideloaded();
 });

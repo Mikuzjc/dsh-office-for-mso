@@ -30,6 +30,7 @@ node server.js   # or: powershell -ExecutionPolicy Bypass -File start.ps1
 ```
 
 Wait for `listening on http://127.0.0.1:3000`.
+**On Windows the add-in is auto-registered on startup (WEF registry)** — on first run **close and reopen the Office document** and the pane appears; on macOS load manually via the Office menu (see 1.2/1.3).
 (All path examples below refer to your actual project directory.)
 
 ### 1.2 Sideload the add-in into Office
@@ -165,7 +166,7 @@ Keep the document open afterwards; if the pane is closed, repeat step 2 to reope
 
 **Recommended: Windows Scheduled Task `DSH Office Bridge` (auto-start at logon, silent)**
 - **One-click install**: `powershell -ExecutionPolicy Bypass -File install.ps1` (registers automatically using the current directory — machine-agnostic, no path editing needed)
-- Manual: Trigger = on user logon; Settings = no time limit (persistent), StartWhenAvailable; launch command = `wscript <project-dir>\run-hidden.vbs "node <project-dir>\server.js"` (silent, no window flash)
+- Manual: Trigger = on user logon; Settings = no time limit (persistent), StartWhenAvailable; launch command = `powershell -NoProfile -WindowStyle Hidden -Command "& '<node-full-path>' '<project-dir>\server.js'"` (silent, no window)
 - Manual management:
   - Start: `Start-ScheduledTask -TaskName 'DSH Office Bridge'`
   - Stop: find process by port `netstat -ano | findstr :3000` → `Stop-Process -Id <pid>`

@@ -30,6 +30,7 @@ node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps
 ```
 
 `listening on http://127.0.0.1:3000` が表示されれば OK。
+**Windows では起動時にアドインが自動登録（WEF レジストリ）されます**——初回は**Office ドキュメントを閉じて開き直す**とペインが表示されます。macOS では Office メニューから手動で読み込んでください（1.2/1.3 参照）。
 （以降のパス例はすべてご自身の実際のプロジェクトディレクトリを指します。）
 
 ### 1.2 アドインを Office にサイドロード
@@ -165,7 +166,7 @@ node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps
 
 **推奨：Windows タスクスケジューラ「DSH Office Bridge」（ログオン時自動起動、サイレント）**
 - **ワンクリックインストール**：`powershell -ExecutionPolicy Bypass -File install.ps1`（カレントディレクトリを自動で使用して登録、マシン非依存でパス編集不要）
-- 手動登録：トリガー=ユーザーログオン時；設定=時間制限なし（常駐）、StartWhenAvailable；起動コマンド=`wscript <プロジェクトディレクトリ>\run-hidden.vbs "node <プロジェクトディレクトリ>\server.js"`（サイレント、ウィンドウ表示なし）
+- 手動登録：トリガー=ユーザーログオン時；設定=時間制限なし（常駐）、StartWhenAvailable；起動コマンド=`powershell -NoProfile -WindowStyle Hidden -Command "& '<node完全パス>' '<プロジェクトディレクトリ>\server.js'"`（サイレント、ウィンドウなし）
 - 手動管理：
   - 起動：`Start-ScheduledTask -TaskName 'DSH Office Bridge'`
   - 停止：ポートでプロセス特定 `netstat -ano | findstr :3000` → `Stop-Process -Id <pid>`

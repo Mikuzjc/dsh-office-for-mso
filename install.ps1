@@ -17,13 +17,8 @@ $projectDir = $PSScriptRoot
 $nodePath = (Get-Command node -ErrorAction Stop).Source
 $serverPath = Join-Path $projectDir 'server.js'
 
-# 生成 run-hidden.vbs（静默启动用；node 用完整路径 + cmd /c 包装，避免计划任务环境 PATH 缺失导致"找不到文件"）
-$vbsPath = Join-Path $projectDir 'run-hidden.vbs'
-if (-not (Test-Path $vbsPath)) {
-  Set-Content -Path $vbsPath -Value "Set sh = CreateObject(`"WScript.Shell`")`r`nsh.Run `"cmd /c `" & WScript.Arguments(0), 0, False" -Encoding ASCII
-}
-
-$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "`"$vbsPath`" `"`"$nodePath`" `"$serverPath`"`""
+# 任务由 powershell 静默启动 node（完整路径，不依赖 PATH/vbs；-WindowStyle Hidden 无窗口）
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"& '$nodePath' '$serverPath'`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
 
@@ -40,3 +35,7 @@ try {
 } catch {
   Write-Host "[WARN] 服务已启动但状态未确认（请稍后检查 http://127.0.0.1:3000/office/status）" -ForegroundColor Yellow
 }
+
+# 自动 sideload 加载项（WEF 注册表，普通权限即可；server.js 启动时也会自动执行）
+Write-Host "`n--- 注册加载项 ---" -ForegroundColor Cyan
+& powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'sideload.ps1')

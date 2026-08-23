@@ -30,6 +30,7 @@ node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 ```
 
 看到 `listening on http://127.0.0.1:3000` 即可。
+**Windows 下启动时会自动注册加载项（WEF 注册表）**——首次请**关闭并重新打开 Office 文档**，窗格即出现；macOS 需用 Office 菜单手动加载（见 1.2/1.3）。
 （下文路径示例均以你的实际项目目录为准。）
 
 ### 2. 把加载项加载到 Office（sideload）
@@ -165,7 +166,7 @@ node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 
 **推荐：Windows 计划任务「DSH Office Bridge」（登录自启，静默运行）**
 - **一键安装**：`powershell -ExecutionPolicy Bypass -File install.ps1`（自动按当前目录注册，跨机器通用，无需改路径）
-- 手动注册：触发器=用户登录时启动；Settings=常驻无时限、StartWhenAvailable；启动命令=`wscript <项目目录>\run-hidden.vbs "node <项目目录>\server.js"`（静默，不闪窗）
+- 手动注册：触发器=用户登录时启动；Settings=常驻无时限、StartWhenAvailable；启动命令=`powershell -NoProfile -WindowStyle Hidden -Command "& '<node完整路径>' '<项目目录>\server.js'"`（静默，无窗口）
 - 手动管理：
   - 启动：`Start-ScheduledTask -TaskName 'DSH Office Bridge'`
   - 停止：按端口找进程 `netstat -ano | findstr :3000` → `Stop-Process -Id <pid>`
