@@ -62,6 +62,16 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 3. 对比两侧编号集合：题注里有但没被引用的、引用了但题注不存在的、编号对不上的——输出差异清单
 4. 若有题注语言混乱（"图 1" vs "Figure 1" 混用）一并指出；Word 题注自动变英文的根因通常是题注样式/插入标签语言跟随 Word 界面语言——指导用户在 **引用 → 插入题注 → 编号/标签** 中检查标签语言，或改用中文题注样式
 
+## 编辑仓库文件前（guard 守卫）
+
+在 dsh-office-for-mso 工作区编辑任何文件前，先运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File guard.ps1 [文件...]
+```
+
+若报告未提交改动（可能来自外部进程/其他 AI/脚本，或 pwsh/node 直接改文件留下），**先 read 最新内容再编辑**——DSH 的 edit 工具自带 re-read 强制，但脚本直改文件不经过它，guard 补上这个缺口。
+
 ## 安装（用户侧，一次性）
 
 ```powershell
