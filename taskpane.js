@@ -185,9 +185,70 @@ function setConnected() {
   if (statusEl.className !== 'status ok') setStatus('ok', '已连接：等待 DSH 指令');
 }
 
+// ---------- 确认模式与窗格审批 ----------
+let confirmMode = 'auto';
+let approvalActive = false;
+let approvalPending = null; // { cmd, preview, meta, resolve }
+
+function setConfirmMode(mode) {
+  confirmMode = mode;
+  window.__CONFIRM_MODE__ = mode;
+  const sel = document.getElementById('mode-select');
+  if (sel) sel.value = mode;
+  api('/office/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmMode: mode }),
+  }).catch(() => { /* 忽略 */ });
+  log(`确认模式: ${mode}`);
+}
+
+function renderApproval() {
+  const box = document.getElementById('approval');
+  if (!box) return;
+  if (!approvalPending) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  document.getElementById('approval-action').textContent =
+    `${approvalPending.cmd.action} @ ${approvalPending.cmd.host || hostName()}`;
+  document.getElementById('approval-preview').textContent = approvalPending.preview
+    ? JSON.stringify(approvalPending.preview, null, 2).slice(0, 1500)
+    : '(预览不可用)';
+}
+
+async function showApproval(cmd) {
+  approvalActive = true;
+  const meta = (window.__ACTIONS__ || {})[cmd.action] || {};
+  const previewP = (meta.preview
+    ? Promise.resolve(meta.preview(hostName(), cmd.args || {}))
+    : Promise.resolve(okResult(null))
+  ).catch((e) => errResult('execution', String(e && e.message || e)));
+  const p = await previewP;
+  approvalPending = { cmd, preview: p.ok ? p.result : null, meta };
+  renderApproval();
+  // 等待用户在窗格点击（确认/拒绝）
+  const decision = await new Promise((resolve) => { approvalPending.resolve = resolve; });
+  const { cmd: c } = approvalPending;
+  approvalPending = null;
+  approvalActive = false;
+  renderApproval();
+  if (decision === 'reject') {
+    return api('/office/result', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commandId: c.commandId, ok: false, error: '用户在窗格拒绝了该操作', code: 'rejected' }),
+    });
+  }
+  const out = await execute(c.action, Object.assign({}, c.args || {}, { confirm: true }));
+  return api('/office/result', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commandId: c.commandId, ok: out.ok, result: out.result, error: out.error, code: out.code }),
+  });
+}
+
 let busy = false;
 async function poll() {
-  if (busy) return;
+  if (busy || approvalActive) return; // 审批中暂停轮询，避免重复取同一指令
   busy = true;
   try {
     await ensureActions();
@@ -195,14 +256,20 @@ async function poll() {
     const cmd = await api('/office/poll?host=' + encodeURIComponent(host));
     setConnected(); // 轮询成功 = 桥接已连上，恢复状态
     if (cmd && cmd.commandId) {
-      log(`执行: ${cmd.action} ${JSON.stringify(cmd.args || {}).slice(0, 80)}`);
-      const out = await execute(cmd.action, cmd.args || {});
-      await api('/office/result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ commandId: cmd.commandId, ok: out.ok, result: out.result, error: out.error, code: out.code }),
-      });
-      log(out.ok ? `完成: ${cmd.action}` : `失败: ${cmd.action} -> ${out.error}`);
+      const meta = (window.__ACTIONS__ || {})[cmd.action] || {};
+      if (meta.destructive && confirmMode === 'ask' && !(cmd.args || {}).confirm) {
+        log(`待审批: ${cmd.action}`);
+        await showApproval(cmd); // ask 模式：窗格挂起等用户审批
+      } else {
+        log(`执行: ${cmd.action} ${JSON.stringify(cmd.args || {}).slice(0, 80)}`);
+        const out = await execute(cmd.action, cmd.args || {});
+        await api('/office/result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ commandId: cmd.commandId, ok: out.ok, result: out.result, error: out.error, code: out.code }),
+        });
+        log(out.ok ? `完成: ${cmd.action}` : `失败: ${cmd.action} -> ${out.error}`);
+      }
     }
   } catch (e) {
     setStatus('err', '桥接服务未连接，等待重试…');
@@ -227,8 +294,24 @@ Office.onReady((info) => {
   api('/office/hello', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ host: hostName(), version: 'shell-v1.3' }),
+    body: JSON.stringify({ host: hostName(), version: 'shell-v1.4' }),
   }).catch(() => {});
+  // 模式开关 + 审批按钮
+  const modeSel = document.getElementById('mode-select');
+  if (modeSel) {
+    modeSel.addEventListener('change', (e) => setConfirmMode(e.target.value));
+    api('/office/config').then((c) => {
+      if (c && (c.confirmMode === 'auto' || c.confirmMode === 'ask')) {
+        confirmMode = c.confirmMode;
+        window.__CONFIRM_MODE__ = c.confirmMode;
+        modeSel.value = c.confirmMode;
+      }
+    }).catch(() => {});
+  }
+  const btnConfirm = document.getElementById('approval-confirm');
+  const btnReject = document.getElementById('approval-reject');
+  if (btnConfirm) btnConfirm.addEventListener('click', () => { if (approvalPending && approvalPending.resolve) approvalPending.resolve('confirm'); });
+  if (btnReject) btnReject.addEventListener('click', () => { if (approvalPending && approvalPending.resolve) approvalPending.resolve('reject'); });
   setInterval(poll, POLL_MS);
   setInterval(heartbeat, HEARTBEAT_MS);
   heartbeat();

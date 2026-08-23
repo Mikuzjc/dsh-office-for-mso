@@ -19,8 +19,8 @@ const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
 const COMMAND_TIMEOUT_MS = Number(process.env.COMMAND_TIMEOUT_MS || 90000);
 const VALID_HOSTS = ['Word', 'Excel', 'PowerPoint'];
-// 覆盖类操作确认模式：auto=自动 re-read 后执行（结果附 previousState，不打扰用户）；ask=re-read 后必须用户确认
-const CONFIRM_MODE = process.env.OFFICE_CONFIRM_MODE || 'auto';
+// 覆盖类操作确认模式：auto=自动 re-read 后执行（结果附 previousState，不打扰用户）；ask=窗格显示审批面板，用户点确认才执行
+let CONFIRM_MODE = process.env.OFFICE_CONFIRM_MODE || 'auto';
 
 // ---- 能力注册表（与 taskpane.js 的 ACTIONS 保持一致；供 AI 层 /office/capabilities 发现能力）----
 // 一期全集：现有 10 个 + 新增（Word 组 / Excel 组 / PPT 组）。destructive=true 的操作须先 dryRun 预览。
@@ -262,9 +262,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /office/config —— 运行时配置（窗格/AI 可查；confirmMode: auto|ask）
+  // GET/POST /office/config —— 运行时配置（confirmMode: auto|ask，窗格开关同步用）
   if (req.method === 'GET' && p === '/office/config') {
     sendJson(res, 200, { confirmMode: CONFIRM_MODE });
+    return;
+  }
+  if (req.method === 'POST' && p === '/office/config') {
+    let body;
+    try { body = await readBody(req); } catch { body = {}; }
+    if (body.confirmMode === 'auto' || body.confirmMode === 'ask') {
+      CONFIRM_MODE = body.confirmMode;
+      sendJson(res, 200, { ok: true, confirmMode: CONFIRM_MODE });
+    } else {
+      sendJson(res, 400, { ok: false, error: 'confirmMode must be "auto" or "ask"' });
+    }
     return;
   }
 

@@ -14,13 +14,34 @@
     .warn { background: #fef7e0; color: #ea8600; }
     #log { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; height: 140px; overflow-y: auto; font-size: 12px; white-space: pre-wrap; }
     .meta { color: #5f6368; font-size: 12px; margin-top: 6px; }
+    .mode-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 12px; }
+    #approval { display: none; border: 2px solid #ea8600; background: #fef7e0; border-radius: 6px; padding: 10px; margin: 8px 0; }
+    #approval .title { font-weight: bold; margin-bottom: 6px; }
+    #approval .preview { background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; padding: 6px; font-size: 11px; max-height: 100px; overflow-y: auto; margin-bottom: 8px; white-space: pre-wrap; word-break: break-all; }
+    #approval button { margin-right: 8px; padding: 4px 14px; border-radius: 4px; border: none; cursor: pointer; font-size: 13px; }
+    #approval-confirm { background: #1a73e8; color: #fff; }
+    #approval-reject { background: #e0e0e0; color: #333; }
   </style>
 </head>
 <body>
   <h1>DSH Office 执行器</h1>
   <div id="status" class="status warn">正在初始化 Office…</div>
   <div class="meta" id="host">host: -</div>
-  <div class="meta">此窗格只是状态显示，无需任何操作；指令由 DSH 会话下发，本加载项在后台执行。</div>
+  <div class="mode-row">
+    <label for="mode-select">覆盖操作确认模式：</label>
+    <select id="mode-select">
+      <option value="auto">auto（自动 re-read 后执行）</option>
+      <option value="ask">ask（需在窗格审批）</option>
+    </select>
+  </div>
+  <div id="approval">
+    <div class="title">⚠️ 待确认的覆盖操作</div>
+    <div class="meta" id="approval-action">-</div>
+    <div class="preview" id="approval-preview">(读取预览中…)</div>
+    <button id="approval-confirm">✅ 确认执行</button>
+    <button id="approval-reject">✕ 拒绝</button>
+  </div>
+  <div class="meta">窗格承载 Office.js 执行：auto 模式覆盖操作自动执行；ask 模式需在此审批。窗格须保持开启。</div>
   <div style="margin-top:8px"><strong>最近执行日志</strong></div>
   <div id="log">(空)</div>
   <script src="taskpane.js"></script>
