@@ -44,7 +44,10 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 
 ## 安全与边界
 
-- **🔒 覆盖类操作机制级确认（confirm，写前 re-read）**：以下属覆盖类——`write_selection` / `replace_all` / `remove_empty_paragraphs` / `delete_sheet` / `format_selection` / `write_range` / `format_range` / `rename_sheet` / `apply_sort` / `apply_filter` / `set_font` / `apply_style`。**不带 `confirm: true` 的指令会被桥接拒绝并返回当前状态预览**（`code: confirm_required`，`result.preview` 含被操作位置的当前内容）。正确流程：① 发指令（不带 confirm）拿预览 → ② 向用户展示"将改动什么" → ③ 用户确认后带 `confirm: true` 重发执行。**这保证任何覆盖都基于最新文档状态，不会凭记忆覆盖用户刚做的修改**
+- **🔒 覆盖类操作写前 re-read（机制级）**：以下属覆盖类——`write_selection` / `replace_all` / `remove_empty_paragraphs` / `delete_sheet` / `format_selection` / `write_range` / `format_range` / `rename_sheet` / `apply_sort` / `apply_filter` / `set_font` / `apply_style`。**无论何种模式，覆盖操作执行前都会自动读取当前状态（re-read），绝不凭记忆覆盖**。确认模式由执行器开关 `OFFICE_CONFIRM_MODE` 决定：
+  - **`auto`（默认）**：自动 re-read 后**直接执行**，结果附 `previousState`（被操作前的状态快照）。AI 应核验 `previousState` 与预期一致（找到自己在改什么），异常立即告知用户
+  - **`ask`**：re-read 后**必须用户确认**（`confirm: true`）才执行——发指令（无 confirm）拿预览 → 向用户展示 → 确认后带 confirm 重发
+  - 切换：桥接服务环境变量 `OFFICE_CONFIRM_MODE=ask`（或 `auto`），改后重启服务
 - **破坏性操作 dryRun 预览**：`replace_all` / `remove_empty_paragraphs` / `delete_sheet` 的预览本身就是 dryRun（返回影响范围），确认时一并展示
 - **⚠️ 删空行有风险（实测踩坑）**：`remove_empty_paragraphs` 删除空段落可能**破坏文档的节/样式分隔**（Word 会因此自动重排小节、打乱格式）。执行前**必须 dryRun 预览 + 明确告知用户风险**；建议仅在"确实需要清理多余空行"且用户确认后执行，文档结构复杂（含分节符/多级标题）时宁可保守
 - **⚠️ 写入不要多加空行（实测踩坑）**：向 Word 插入/追加段落时，**不要**在段落之间插入多余的空段落——Word 段落间距应由段落格式（间距/段后）控制，多余空行会导致 Word 自动重排、填充小节、打乱格式。`insert_paragraph` 一次一个段落、连续段落间不加空行；需要视觉间距时说明用段落格式，而非空行段落

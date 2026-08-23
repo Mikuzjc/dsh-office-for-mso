@@ -19,6 +19,8 @@ const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
 const COMMAND_TIMEOUT_MS = Number(process.env.COMMAND_TIMEOUT_MS || 90000);
 const VALID_HOSTS = ['Word', 'Excel', 'PowerPoint'];
+// 覆盖类操作确认模式：auto=自动 re-read 后执行（结果附 previousState，不打扰用户）；ask=re-read 后必须用户确认
+const CONFIRM_MODE = process.env.OFFICE_CONFIRM_MODE || 'auto';
 
 // ---- 能力注册表（与 taskpane.js 的 ACTIONS 保持一致；供 AI 层 /office/capabilities 发现能力）----
 // 一期全集：现有 10 个 + 新增（Word 组 / Excel 组 / PPT 组）。destructive=true 的操作须先 dryRun 预览。
@@ -257,6 +259,12 @@ const server = http.createServer(async (req, res) => {
     let v = '0';
     try { v = String(fs.statSync(path.join(ROOT, 'actions.js')).mtimeMs); } catch (e) { /* 文件缺失 */ }
     sendJson(res, 200, { version: v });
+    return;
+  }
+
+  // GET /office/config —— 运行时配置（窗格/AI 可查；confirmMode: auto|ask）
+  if (req.method === 'GET' && p === '/office/config') {
+    sendJson(res, 200, { confirmMode: CONFIRM_MODE });
     return;
   }
 

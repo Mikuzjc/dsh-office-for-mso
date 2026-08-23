@@ -971,27 +971,36 @@
   window.__ACTIONS__ = ACTIONS_TABLE;
 
   // 分发器（外壳 execute 转发到这里，便于热更新拦截逻辑）
+  // confirmMode: auto（默认）= 覆盖操作自动 re-read 后执行，结果附 previousState 供 AI 核验，不打扰用户；
+  //              ask = re-read 后必须用户确认（confirm:true）才执行。
   window.__EXECUTE__ = function (action, args) {
     const meta = ACTIONS_TABLE[action];
     if (!meta) return errResult('unknown_action', `unknown action: ${action}`);
     const host = String(Office.context.host || '');
     if (!meta.hosts.includes(host)) return errResult('unsupported_host', `${action} not supported in ${host}`);
-    // 机制级 re-read：覆盖类操作必须先预览当前状态，确认后带 confirm:true 才执行
+    const run = () => Promise.resolve().then(() => meta.impl(host, args || {})).catch((e) => {
+      const debug = (e && e.debugInfo) ? (' [debug] ' + JSON.stringify(e.debugInfo)) : '';
+      return errResult('execution', String(e && e.message || e) + debug);
+    });
+    // 覆盖类操作：先取确认模式
+    const modeP = window.__CONFIRM_MODE__ !== undefined
+      ? Promise.resolve(window.__CONFIRM_MODE__)
+      : fetch('/office/config').then((r) => r.json()).then((c) => { window.__CONFIRM_MODE__ = (c && c.confirmMode) || 'auto'; return window.__CONFIRM_MODE__; }).catch(() => { window.__CONFIRM_MODE__ = 'auto'; return 'auto'; });
     if (meta.destructive && args && args.confirm !== true) {
-      if (meta.preview) {
-        return Promise.resolve(meta.preview(host, args))
-          .then((p) => (p.ok
-            ? { ok: false, code: 'confirm_required', error: '覆盖类操作需确认：请向用户展示当前状态预览（result.preview），确认后带 confirm:true 重发', result: { preview: p.result, action, args } }
-            : p))
-          .catch((e) => errResult('execution', String(e && e.message || e)));
-      }
-      return errResult('confirm_required', `覆盖类操作 ${action} 需先预览确认（confirm:true）`);
+      if (!meta.preview) return errResult('confirm_required', `覆盖类操作 ${action} 需先预览确认（confirm:true）`);
+      return modeP.then((mode) => Promise.resolve(meta.preview(host, args)).then((p) => {
+        if (!p.ok) return p;
+        if (mode === 'auto') {
+          // 自动模式：re-read 完成，直接执行；结果附 previousState（被操作前的状态）供 AI 核验
+          return run().then((r) => {
+            if (r.ok && r.result && typeof r.result === 'object') r.result.previousState = p.result;
+            return r;
+          });
+        }
+        // ask 模式：必须用户确认
+        return { ok: false, code: 'confirm_required', error: '覆盖类操作需确认：请向用户展示当前状态预览（result.preview），确认后带 confirm:true 重发', result: { preview: p.result, action, args } };
+      }));
     }
-    return Promise.resolve()
-      .then(() => meta.impl(host, args || {}))
-      .catch((e) => {
-        const debug = (e && e.debugInfo) ? (' [debug] ' + JSON.stringify(e.debugInfo)) : '';
-        return errResult('execution', String(e && e.message || e) + debug);
-      });
+    return run();
   };
 })();

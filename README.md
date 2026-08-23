@@ -178,6 +178,8 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 
 ## 五、安全护栏
 
+- **覆盖类操作写前 re-read（机制级）**：所有覆盖操作（写入/替换/删除/格式化覆盖）执行前自动读取当前状态，绝不凭记忆覆盖。确认模式由环境变量 `OFFICE_CONFIRM_MODE` 控制：`auto`（默认）= 自动 re-read 后执行、结果附 `previousState` 供核验；`ask` = re-read 后必须用户确认（`confirm: true`）。改后重启服务生效（`GET /office/config` 可查当前模式）
+
 - **破坏性操作 dryRun**：replace_all / remove_empty_paragraphs / delete_sheet 支持 `dryRun` 返回影响预览，AI 层默认先预览后执行
 - **图片段落保护**：删除空段落时跳过含 inlinePictures 的段落（曾误删流程图，已修复）
 - **文档结尾段保护**：Word 最后一段（段落标记）不可删除
