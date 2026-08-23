@@ -172,17 +172,10 @@ async function ensureActions() {
 // ================= 分发器 =================
 
 function execute(action, args) {
-  const ACTIONS = window.__ACTIONS__ || {};
-  const meta = ACTIONS[action];
-  if (!meta) return errResult('unknown_action', `unknown action: ${action}`);
-  const host = hostName();
-  if (!meta.hosts.includes(host)) return errResult('unsupported_host', `${action} not supported in ${host}`);
-  return Promise.resolve()
-    .then(() => meta.impl(host, args || {}))
-    .catch((e) => {
-      const debug = (e && e.debugInfo) ? (' [debug] ' + JSON.stringify(e.debugInfo)) : '';
-      return errResult('execution', String(e && e.message || e) + debug);
-    });
+  // 转发给 actions.js 的 __EXECUTE__（含机制级 re-read confirm 拦截，可热更新）
+  const fn = window.__EXECUTE__;
+  if (typeof fn !== 'function') return errResult('unknown_action', 'actions 尚未加载');
+  return Promise.resolve(fn(action, args));
 }
 
 // ================= 后台循环 =================

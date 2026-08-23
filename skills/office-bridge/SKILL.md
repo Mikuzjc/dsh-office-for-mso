@@ -44,7 +44,8 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 
 ## 安全与边界
 
-- **破坏性操作先预览**：`replace_all` / `remove_empty_paragraphs` / `delete_sheet` 传 `dryRun: true` 查看影响范围，用户确认后再执行
+- **🔒 覆盖类操作机制级确认（confirm，写前 re-read）**：以下属覆盖类——`write_selection` / `replace_all` / `remove_empty_paragraphs` / `delete_sheet` / `format_selection` / `write_range` / `format_range` / `rename_sheet` / `apply_sort` / `apply_filter` / `set_font` / `apply_style`。**不带 `confirm: true` 的指令会被桥接拒绝并返回当前状态预览**（`code: confirm_required`，`result.preview` 含被操作位置的当前内容）。正确流程：① 发指令（不带 confirm）拿预览 → ② 向用户展示"将改动什么" → ③ 用户确认后带 `confirm: true` 重发执行。**这保证任何覆盖都基于最新文档状态，不会凭记忆覆盖用户刚做的修改**
+- **破坏性操作 dryRun 预览**：`replace_all` / `remove_empty_paragraphs` / `delete_sheet` 的预览本身就是 dryRun（返回影响范围），确认时一并展示
 - **⚠️ 删空行有风险（实测踩坑）**：`remove_empty_paragraphs` 删除空段落可能**破坏文档的节/样式分隔**（Word 会因此自动重排小节、打乱格式）。执行前**必须 dryRun 预览 + 明确告知用户风险**；建议仅在"确实需要清理多余空行"且用户确认后执行，文档结构复杂（含分节符/多级标题）时宁可保守
 - **⚠️ 写入不要多加空行（实测踩坑）**：向 Word 插入/追加段落时，**不要**在段落之间插入多余的空段落——Word 段落间距应由段落格式（间距/段后）控制，多余空行会导致 Word 自动重排、填充小节、打乱格式。`insert_paragraph` 一次一个段落、连续段落间不加空行；需要视觉间距时说明用段落格式，而非空行段落
 - **写入后检查样式**：向 Word 写入内容（insert_paragraph / write_selection / append_text）后，用 `read_styles` / `read_document` 检查结果，样式不对时用 `format_selection` / `apply_style` 修正（用户常抱怨"写入后样式不对"）

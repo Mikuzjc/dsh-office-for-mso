@@ -906,7 +906,25 @@
 
   // ================= 注册表 =================
 
-  window.__ACTIONS__ = {
+  // 机制级 re-read：覆盖类操作（destructive）必须先预览当前状态，确认后带 confirm:true 才执行。
+  // 每个覆盖类 action 映射到"读当前状态"的函数，预览结果随 confirm_required 返回给 AI。
+  const PREVIEW_READERS = {
+    write_selection: (host, args) => readSelection(host, {}),
+    replace_all: (host, args) => replaceAll(host, Object.assign({}, args, { dryRun: true })),
+    remove_empty_paragraphs: (host, args) => removeEmptyParagraphs(host, Object.assign({}, args, { dryRun: true })),
+    delete_sheet: (host, args) => deleteSheet(host, Object.assign({}, args, { dryRun: true })),
+    format_selection: (host, args) => readSelection(host, { withStyles: true }),
+    write_range: (host, args) => readRange(host, { address: args.address }),
+    format_range: (host, args) => readRange(host, { address: args.address }),
+    rename_sheet: (host, args) => listSheets(host, {}),
+    apply_sort: (host, args) => readRange(host, { address: args.address }),
+    apply_filter: (host, args) => readRange(host, { address: args.address }),
+    set_font: (host, args) => okResult({ host, wouldSetFont: args.font, note: '影响全文所有段落（含表格内文字），属覆盖类操作' }),
+    apply_style: (host, args) => readSelection(host, {}),
+  };
+
+  // 注册表（外壳 execute 按 meta.destructive + meta.preview 做机制级 re-read 确认）
+  const ACTIONS_TABLE = {
     // 通用
     read_selection: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: readSelection },
     write_selection: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: true, impl: writeSelection },
@@ -945,5 +963,35 @@
     ppt_read_notes: { hosts: ['PowerPoint'], destructive: false, impl: readPptNotes },
     // 环境诊断
     get_environment: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: getEnvironment },
+  };
+  // 注入 preview（机制级 re-read：覆盖类操作先读当前状态，AI 确认后带 confirm:true 才执行）
+  for (const [name, meta] of Object.entries(ACTIONS_TABLE)) {
+    if (meta.destructive && PREVIEW_READERS[name]) meta.preview = PREVIEW_READERS[name];
+  }
+  window.__ACTIONS__ = ACTIONS_TABLE;
+
+  // 分发器（外壳 execute 转发到这里，便于热更新拦截逻辑）
+  window.__EXECUTE__ = function (action, args) {
+    const meta = ACTIONS_TABLE[action];
+    if (!meta) return errResult('unknown_action', `unknown action: ${action}`);
+    const host = String(Office.context.host || '');
+    if (!meta.hosts.includes(host)) return errResult('unsupported_host', `${action} not supported in ${host}`);
+    // 机制级 re-read：覆盖类操作必须先预览当前状态，确认后带 confirm:true 才执行
+    if (meta.destructive && args && args.confirm !== true) {
+      if (meta.preview) {
+        return Promise.resolve(meta.preview(host, args))
+          .then((p) => (p.ok
+            ? { ok: false, code: 'confirm_required', error: '覆盖类操作需确认：请向用户展示当前状态预览（result.preview），确认后带 confirm:true 重发', result: { preview: p.result, action, args } }
+            : p))
+          .catch((e) => errResult('execution', String(e && e.message || e)));
+      }
+      return errResult('confirm_required', `覆盖类操作 ${action} 需先预览确认（confirm:true）`);
+    }
+    return Promise.resolve()
+      .then(() => meta.impl(host, args || {}))
+      .catch((e) => {
+        const debug = (e && e.debugInfo) ? (' [debug] ' + JSON.stringify(e.debugInfo)) : '';
+        return errResult('execution', String(e && e.message || e) + debug);
+      });
   };
 })();
