@@ -77,6 +77,18 @@ After installation, you need to **open the add-in once** before DSH can operate 
 
 Keep the **document open + pane open** afterwards; if the pane is closed accidentally, DSH will report `addin_offline` — repeat step 2 to reopen it.
 
+### 1.4 Make DSH actively use this skill (important)
+
+DSH only auto-invokes skills installed in its **skill library** (`~/.agents/skills/`) — cloning the repo alone does not make DSH use it. Install the SKILL.md into the library:
+
+```powershell
+# Windows: copy into the DSH skill library
+mkdir "$HOME\.agents\skills\office-bridge" -Force | Out-Null
+copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
+```
+
+Or create an `office-bridge` skill in the DSH settings panel's skill manager (content in `skills/office-bridge/SKILL.md`). Once installed, the main model sees the skill description and will automatically call the bridge for requests like "read the Word document" / "generate a chart in Excel" / "translate the selection".
+
 ## 2. Architecture
 
 | File | Responsibility |

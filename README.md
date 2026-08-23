@@ -77,6 +77,18 @@ npm run setup   # 一键：注册计划任务（登录自启、静默常驻）+ 
 
 之后保持**文档打开 + 窗格开启**即可；窗格意外关闭时 DSH 会提示（`addin_offline`），按步骤 2 重新打开即可。
 
+### 1.4 让 DSH 主动使用本技能（重要）
+
+DSH 只会主动调用**技能库**（`~/.agents/skills/`）中的技能——仅 clone 仓库不会让 DSH 自动使用。请把本仓库的 SKILL.md 安装进技能库：
+
+```powershell
+# Windows：复制进 DSH 技能库
+mkdir "$HOME\.agents\skills\office-bridge" -Force | Out-Null
+copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
+```
+
+或使用 DSH 设置面板的「技能管理」创建 `office-bridge` 技能（内容见 `skills/office-bridge/SKILL.md`）。安装后，主模型看到技能描述，在"读 Word 全文 / Excel 生成图表 / 把选中的翻译成英文"等请求时会自动调用桥接。
+
 ## 二、架构
 
 | 文件 | 职责 |

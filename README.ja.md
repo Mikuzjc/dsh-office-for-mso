@@ -77,6 +77,18 @@ npm run setup   # ワンクリック：タスクスケジューラ登録（ロ�
 
 その後は**ドキュメントを開いたまま + ペインを開いたまま**にしてください。ペインを誤って閉じた場合、DSH が `addin_offline` を報告するので、手順2を繰り返して再表示します。
 
+### 1.4 DSH にこのスキルを自動使用させる（重要）
+
+DSH は**スキルライブラリ**（`~/.agents/skills/`）にインストールされたスキルしか自動呼び出ししません——リポジトリを clone しただけでは DSH は使いません。SKILL.md をライブラリにインストールしてください：
+
+```powershell
+# Windows：DSH スキルライブラリへコピー
+mkdir "$HOME\.agents\skills\office-bridge" -Force | Out-Null
+copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
+```
+
+または DSH 設定パネルの「スキル管理」で `office-bridge` スキルを作成（内容は `skills/office-bridge/SKILL.md`）。インストール後、メインモデルがスキル説明を見て、「Word 全文を読んで」「Excel でグラフを作って」「選択範囲を英訳して」などの要求で自動的にブリッジを呼び出します。
+
 ## 2. アーキテクチャ
 
 | ファイル | 役割 |
