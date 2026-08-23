@@ -34,14 +34,20 @@ Wait for `listening on http://127.0.0.1:3000`.
 
 ### 1.2 Sideload the add-in into Office
 
-Open any Word / Excel / PowerPoint document:
+> **Platforms**: the core (server.js + add-in) only requires Node.js and runs on Windows / macOS (Office desktop on macOS supports add-in sideload too); `install.ps1`/Scheduled Task is an **optional** Windows-only auto-hosting — on macOS just run `node server.js` manually.
 
-1. Menu **Insert → My Add-ins → Manage My Add-ins → Upload My Add-in**
-2. Select `<your-project-dir>\manifest.xml`
-3. The **DSH Office Executor** pane appears in the sidebar, showing **Connected: waiting for DSH commands**
+On newer Office (2024+, Microsoft has hidden the "Upload My Add-in" entry) use the **Developer Add-ins** flow:
+
+1. Enable the Developer tab: **File → Options → Customize Ribbon → check "Developer" under Main Tabs** → OK
+2. Open any Word / Excel / PowerPoint document
+3. **Developer tab → Add-ins** (or **Insert → My Add-ins**) → open the "Office Add-ins" dialog
+4. At the bottom-left of the dialog, in the **Manage** dropdown select **Developer Add-ins**
+5. Click **+ (Add)** → select `<your-project-dir>\manifest.xml`
+6. The **DSH Office Executor** pane appears in the sidebar, showing **Connected: waiting for DSH commands**
 
 Then just **keep the document open**; the pane can be minimized/dragged to a corner.
 
+> Older Office versions with the "Upload My Add-in" entry can use it directly.
 > Moving to another machine: repeat the two steps above (bridge service + upload manifest).
 
 ## 2. Architecture

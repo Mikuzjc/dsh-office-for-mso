@@ -34,14 +34,20 @@ node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 
 ### 2. 把加载项加载到 Office（sideload）
 
-打开任意 Word / Excel / PowerPoint 文档：
+> **平台**：核心（server.js + 加载项）仅依赖 Node.js，Windows / macOS 均可运行；`install.ps1`/计划任务为 Windows 专属的**可选**自动托管，macOS 手动 `node server.js` 即可。
 
-1. 菜单 **插入 → 我的加载项 → 管理我的加载项 → 上传我的加载项**
-2. 选择 `<你的项目目录>\manifest.xml`
-3. 侧边栏出现「DSH Office 执行器」窗格，显示 **已连接：等待 DSH 指令** 即成功
+新版 Office（2024+，微软已隐藏「上传我的加载项」入口）请使用**开发人员加载项**方式 sideload：
+
+1. 启用开发人员选项卡：**文件 → 选项 → 自定义功能区 → 主选项卡勾选「开发人员」** → 确定
+2. 打开任意 Word / Excel / PowerPoint 文档
+3. **开发人员选项卡 → 加载项**（或 **插入 → 我的加载项**）→ 打开「Office 加载项」对话框
+4. 对话框底部左侧「管理」下拉选择 **开发人员加载项**
+5. 点 **+（添加）** → 选择 `<你的项目目录>\manifest.xml`
+6. 侧边栏出现「DSH Office 执行器」窗格，显示 **已连接：等待 DSH 指令** 即成功
 
 之后**保持文档打开**即可；窗格可缩小/拖角落，无需操作。
 
+> 旧版 Office 若仍有「上传我的加载项」入口，也可直接使用。
 > 换电脑：重复以上两步（桥接服务 + 上传 manifest）即可。
 
 ## 二、架构

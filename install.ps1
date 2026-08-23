@@ -17,13 +17,13 @@ $projectDir = $PSScriptRoot
 $nodePath = (Get-Command node -ErrorAction Stop).Source
 $serverPath = Join-Path $projectDir 'server.js'
 
-# 生成 run-hidden.vbs（静默启动用，纯 ASCII 避免编码问题）
+# 生成 run-hidden.vbs（静默启动用；node 用完整路径 + cmd /c 包装，避免计划任务环境 PATH 缺失导致"找不到文件"）
 $vbsPath = Join-Path $projectDir 'run-hidden.vbs'
 if (-not (Test-Path $vbsPath)) {
-  Set-Content -Path $vbsPath -Value "Set sh = CreateObject(`"WScript.Shell`")`r`nsh.Run WScript.Arguments(0), 0, False" -Encoding ASCII
+  Set-Content -Path $vbsPath -Value "Set sh = CreateObject(`"WScript.Shell`")`r`nsh.Run `"cmd /c `" & WScript.Arguments(0), 0, False" -Encoding ASCII
 }
 
-$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "`"$vbsPath`" `"$nodePath $serverPath`""
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "`"$vbsPath`" `"`"$nodePath`" `"$serverPath`"`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
 
