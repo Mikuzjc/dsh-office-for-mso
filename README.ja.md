@@ -2,7 +2,7 @@
 
 > [中文](README.md) · [English](README.en.md) · 日本語
 
-**DSH ↔ Office ブリッジ実行エンジン（v1.3）**：DSH セッションからコマンドを発行し、Office アドイン経由で**現在開いている** Word / Excel / PowerPoint ドキュメントを操作します——読み取り、書き込み、書式設定、構造操作、グラフ・数式・コメントなど、Microsoft Copilot for Office の一般的なワークフローに迫ります。
+**DeepSeek Harness（DSH）の Office プラグイン/スキル（v1.3）**：DSH セッションからコマンドを発行し、Office アドイン経由で**現在開いている** Word / Excel / PowerPoint ドキュメントを操作します——読み取り、書き込み、書式設定、構造操作、グラフ・数式・コメントなど、Microsoft Copilot for Office の一般的なワークフローに迫ります。
 
 ```
 あなた ──DSHセッション──▶ AI(agent) ──POST──▶ ブリッジサービス localhost:3000
@@ -20,6 +20,12 @@
 ---
 
 ## 1. セットアップ（初回のみ）
+
+### 0. 前提条件
+
+- **本スキルは [DeepSeek Harness（DSH）](https://github.com/search?q=deepseek+harness) のプラグイン/スキルです**：先に DSH（DeepSeek Harness、Node.js ベースの AI セッション環境）をインストールし、DSH セッション内で本スキルを使用します
+- **Node.js ≥ 18**（DSH とブリッジサービスの両方が必要）
+- **Office デスクトップ**（Word / Excel / PowerPoint、Windows または macOS）
 
 ### 1.1 クローンしてインストール（推奨：ワンクリック常駐サービス）
 

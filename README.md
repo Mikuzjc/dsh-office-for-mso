@@ -2,7 +2,7 @@
 
 > [English](README.en.md) · [日本語](README.ja.md) · 中文
 
-**DSH ↔ Office 桥接执行器（v1.3）**：在 DSH 会话里发指令，通过 Office 加载项操控你**正在打开的** Word / Excel / PowerPoint 文档——读取、写入、格式化、结构操作、图表/公式/批注，接近 Copilot for Office 的常见工作流。
+**DeepSeek Harness（DSH）的 Office 插件/技能（v1.3）**：在 DSH 会话里发指令，通过 Office 加载项操控你**正在打开的** Word / Excel / PowerPoint 文档——读取、写入、格式化、结构操作、图表/公式/批注，接近 Copilot for Office 的常见工作流。
 
 ```
 你 ──DSH 会话发指令──▶ AI(agent) ──POST──▶ 桥接服务 localhost:3000
@@ -20,6 +20,12 @@
 ---
 
 ## 一、部署（一次性）
+
+### 0. 前置条件
+
+- **本技能是 [DeepSeek Harness（DSH）](https://github.com/search?q=deepseek+harness) 的插件/技能**：需先安装 DSH（DeepSeek Harness，基于 Node.js 的 AI 会话环境），并在 DSH 会话中使用本技能
+- **Node.js ≥ 18**（DSH 与桥接服务都依赖）
+- **Office 桌面版**（Word / Excel / PowerPoint，Windows 或 macOS）
 
 ### 1. 克隆仓库并安装（推荐：一键常驻服务）
 

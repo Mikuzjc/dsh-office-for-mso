@@ -2,7 +2,7 @@
 
 > [中文](README.md) · [日本語](README.ja.md) · English
 
-**DSH ↔ Office bridge executor (v1.3)**: Issue commands from a DSH session to control your **currently open** Word / Excel / PowerPoint documents through an Office add-in — reading, writing, formatting, structural operations, charts/formulas/comments — approaching common Microsoft Copilot for Office workflows.
+**A plugin/skill for DeepSeek Harness (DSH) (v1.3)**: Issue commands from a DSH session to control your **currently open** Word / Excel / PowerPoint documents through an Office add-in — reading, writing, formatting, structural operations, charts/formulas/comments — approaching common Microsoft Copilot for Office workflows.
 
 ```
 You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service localhost:3000
@@ -20,6 +20,12 @@ You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service loca
 ---
 
 ## 1. Setup (one-time)
+
+### 0. Prerequisites
+
+- **This is a plugin/skill for [DeepSeek Harness (DSH)](https://github.com/search?q=deepseek+harness)**: you must install DSH (DeepSeek Harness, a Node.js-based AI session environment) first, and use this skill from a DSH session
+- **Node.js ≥ 18** (required by both DSH and the bridge service)
+- **Office desktop** (Word / Excel / PowerPoint, Windows or macOS)
 
 ### 1.1 Clone and install (recommended: one-click persistent service)
 
