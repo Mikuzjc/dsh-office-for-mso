@@ -86,6 +86,7 @@ npm run setup   # 一键：注册计划任务（登录自启、静默常驻）+ 
 | `actions.js` | 全部 action 实现 + 注册表（**热更新单元**：改它无需重开窗格） |
 | `pako.min.js` | 本地 zip 解压库（PPT OOXML 读取用，离线） |
 | `manifest.xml` | 加载项清单（权限 ReadWriteDocument，已到顶） |
+| `skills/office-bridge/SKILL.md` | DSH 技能包：教 AI 使用桥接的完整指令（查状态→发指令→错误处理→安全约定） |
 
 **多文档模型**：Word / Excel / PowerPoint 各自运行一个加载项实例；指令带 `host`（Word/Excel/PowerPoint）精确路由，`GET /office/status` 返回在线文档列表（`hosts` 字段）与窗格启动记录（`hellos`）。
 
