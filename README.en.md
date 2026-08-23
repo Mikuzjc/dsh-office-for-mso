@@ -37,14 +37,14 @@ Wait for `listening on http://127.0.0.1:3000`.
 
 > **Platforms**: the core (server.js + add-in) only requires Node.js and runs on Windows / macOS (Office desktop on macOS supports add-in sideload too); `install.ps1`/Scheduled Task is an **optional** Windows-only auto-hosting — on macOS just run `node server.js` manually.
 
-> **One-click sideload (recommended; Windows-only — uses the WEF registry mechanism; on macOS use the Office menu to load manually)**:
+> **Windows users: no manual sideload needed** — `node server.js` (or `npm run setup`) **auto-registers** the add-in on startup (WEF registry, normal user rights). On first run **close and reopen the Office document** and the pane appears.
+> Only if you need manual management:
 > ```powershell
 > cd <your-project-dir>
-> powershell -ExecutionPolicy Bypass -File sideload.ps1   # register (-Remove to unregister)
+> powershell -ExecutionPolicy Bypass -File sideload.ps1   # manual register (-Remove to unregister)
 > ```
-> Writes to the WEF registry; **close and reopen the Office document** and the pane appears automatically.
 
-Manual flow also works (on newer Office, Microsoft has hidden the "Upload My Add-in" entry — use **Developer Add-ins**):
+**macOS users**: no auto-registration; load manually via the Office menu (Developer Add-ins flow below):
 
 1. Enable the Developer tab: **File → Options → Customize Ribbon → check "Developer" under Main Tabs** → OK
 2. Open any Word / Excel / PowerPoint document
