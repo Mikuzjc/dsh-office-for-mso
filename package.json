@@ -1,0 +1,24 @@
+{
+  "name": "dsh-office-for-mso",
+  "version": "1.3.0",
+  "description": "DSH ↔ Microsoft Office bridge executor: control open Word/Excel/PowerPoint documents via an Office add-in (33 actions, AI-orchestrated, approaching Copilot for Office workflows)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "smoke": "powershell -ExecutionPolicy Bypass -File smoke-test.ps1"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "office",
+    "add-in",
+    "word",
+    "excel",
+    "powerpoint",
+    "office.js",
+    "dsh",
+    "copilot"
+  ]
+}

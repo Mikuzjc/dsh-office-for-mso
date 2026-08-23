@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>DSH Office 执行器</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script src="pako.min.js"></script>
+  <style>
+    body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0; padding: 12px; font-size: 13px; color: #1f1f1f; }
+    h1 { font-size: 14px; margin: 0 0 8px; }
+    .status { padding: 8px; border-radius: 6px; margin-bottom: 8px; }
+    .ok { background: #e6f4ea; color: #137333; }
+    .err { background: #fce8e6; color: #c5221f; }
+    .warn { background: #fef7e0; color: #ea8600; }
+    #log { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px; height: 140px; overflow-y: auto; font-size: 12px; white-space: pre-wrap; }
+    .meta { color: #5f6368; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>DSH Office 执行器</h1>
+  <div id="status" class="status warn">正在初始化 Office…</div>
+  <div class="meta" id="host">host: -</div>
+  <div class="meta">此窗格只是状态显示，无需任何操作；指令由 DSH 会话下发，本加载项在后台执行。</div>
+  <div style="margin-top:8px"><strong>最近执行日志</strong></div>
+  <div id="log">(空)</div>
+  <script src="taskpane.js"></script>
+</body>
+</html>
