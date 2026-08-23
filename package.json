@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "setup": "powershell -ExecutionPolicy Bypass -File install.ps1",
+    "sideload": "powershell -ExecutionPolicy Bypass -File sideload.ps1",
     "smoke": "powershell -ExecutionPolicy Bypass -File smoke-test.ps1"
   },
   "license": "MIT",

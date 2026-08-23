@@ -36,7 +36,13 @@ node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 
 > **平台**：核心（server.js + 加载项）仅依赖 Node.js，Windows / macOS 均可运行；`install.ps1`/计划任务为 Windows 专属的**可选**自动托管，macOS 手动 `node server.js` 即可。
 
-新版 Office（2024+，微软已隐藏「上传我的加载项」入口）请使用**开发人员加载项**方式 sideload：
+> **一键 sideload（推荐，无需手动点 Office 菜单）**：
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File sideload.ps1   # 注册（-Remove 移除）
+> ```
+> 写入 WEF 注册表后，**关闭并重新打开 Office 文档**即自动出现窗格。
+
+也可以手动（新版 Office 微软已隐藏「上传我的加载项」入口，请用**开发人员加载项**）：
 
 1. 启用开发人员选项卡：**文件 → 选项 → 自定义功能区 → 主选项卡勾选「开发人员」** → 确定
 2. 打开任意 Word / Excel / PowerPoint 文档

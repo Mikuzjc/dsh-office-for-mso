@@ -36,7 +36,13 @@ node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps
 
 > **プラットフォーム**：中核（server.js + アドイン）は Node.js のみ必要で Windows / macOS で動作（macOS の Office デスクトップもアドインのサイドロードに対応）。`install.ps1`/タスクスケジューラは Windows 専用の**任意**の自動ホスティング。macOS では手動で `node server.js` を実行。
 
-新しい Office（2024年以降、Microsoft が「アドインのアップロード」エントリを非表示に）では**開発者アドイン**フローを使用：
+> **ワンクリックサイドロード（推奨、Office メニュー操作不要）**：
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File sideload.ps1   # 登録（-Remove で削除）
+> ```
+> WEF レジストリに書き込み、**Office ドキュメントを閉じて開き直す**とペインが自動表示されます。
+
+手動フローも利用可能（新しい Office では Microsoft が「アドインのアップロード」を非表示にしているため、**開発者アドイン**を使用）：
 
 1. 開発者タブを有効化：**ファイル → オプション → リボンのカスタマイズ → メインタブで「開発者」にチェック** → OK
 2. 任意の Word / Excel / PowerPoint ドキュメントを開く
