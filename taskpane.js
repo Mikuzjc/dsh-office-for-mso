@@ -180,6 +180,11 @@ function execute(action, args) {
 
 // ================= 后台循环 =================
 
+// 连接状态恢复：poll/heartbeat 成功时把状态改回"已连接"（断联重连后不再停留"未连接"）
+function setConnected() {
+  if (statusEl.className !== 'status ok') setStatus('ok', '已连接：等待 DSH 指令');
+}
+
 let busy = false;
 async function poll() {
   if (busy) return;
@@ -188,6 +193,7 @@ async function poll() {
     await ensureActions();
     const host = hostName();
     const cmd = await api('/office/poll?host=' + encodeURIComponent(host));
+    setConnected(); // 轮询成功 = 桥接已连上，恢复状态
     if (cmd && cmd.commandId) {
       log(`执行: ${cmd.action} ${JSON.stringify(cmd.args || {}).slice(0, 80)}`);
       const out = await execute(cmd.action, cmd.args || {});
@@ -210,7 +216,7 @@ function heartbeat() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ host: hostName() }),
-  }).catch(() => { /* 忽略，下次再试 */ });
+  }).then(() => setConnected()).catch(() => { /* 忽略，下次再试 */ });
 }
 
 Office.onReady((info) => {
