@@ -67,9 +67,9 @@ After installation, you need to **open the add-in once** before DSH can operate 
 1. Open a Word / Excel / PowerPoint document
 2. **Home (or Developer) tab → Add-ins → Developer Add-ins → "DSH Office Executor"**
 3. Once the pane appears (showing **Connected: waiting for DSH commands**), you can issue commands from the DSH session
-4. The pane can be resized small / dragged to a corner — it is only a status display
+4. The pane can be resized small / dragged to a corner, **but it must stay open while in use** — it hosts the Office.js execution; closing it makes the document unreachable by DSH
 
-Keep the document open afterwards; if the pane is closed, repeat step 2 to reopen it.
+Keep the **document open + pane open** afterwards; if the pane is closed accidentally, DSH will report `addin_offline` — repeat step 2 to reopen it.
 
 ## 2. Architecture
 
@@ -184,6 +184,7 @@ Keep the document open afterwards; if the pane is closed, repeat step 2 to reope
 |---|---|
 | Pane shows "Bridge service not connected" | Confirm `node server.js` is running (`/office/status` responds) |
 | DSH command times out | Add-in offline: confirm document open + pane shows Connected |
+| DSH command returns `addin_offline` immediately | Pane not open: open the document → Home/Developer → Add-ins → Developer Add-ins → open the "DSH Office Executor" pane and keep it open |
 | Pane does not appear | Re-upload manifest; confirm Office is not running as administrator (localhost exception requires normal privileges) |
 | Changes not applied | Confirm cursor/selection position; check the pane execution log |
 | actions.js changes not applied | Restart the bridge (panes hot-reload, no pane reopen needed) |
@@ -194,6 +195,12 @@ Keep the document open afterwards; if the pane is closed, repeat step 2 to reope
 - `GET /office/capabilities` → action registry (name/platform/destructive/args description)
 - `GET /office/status` → online documents (hosts) + pane startup records (hellos)
 - `GET /office/actions-version` → actions.js version (hot-reload comparison)
+
+## 9. AI usage conventions (for DSH and other AI callers)
+
+- Before sending a command, `GET /office/status` first: confirm the target host is online (`hosts` contains the document with a fresh heartbeat) before dispatching
+- On `code: addin_offline`, **do not retry** — remind the user: open the target document → Home/Developer → Add-ins → Developer Add-ins → open the "DSH Office Executor" pane and keep it open
+- The pane must stay open for operations to run (it can be resized/dragged, but not closed)
 
 ---
 

@@ -168,6 +168,17 @@ const server = http.createServer(async (req, res) => {
     const host = body.host && typeof body.host === 'string' ? body.host : null;
     if (host && !VALID_HOSTS.includes(host)) { sendJson(res, 400, { ok: false, error: `invalid host: ${host} (valid: ${VALID_HOSTS.join('/')})` }); return; }
     if (pending) { sendJson(res, 409, { ok: false, error: 'a command is already pending' }); return; }
+    // 快速失败：目标 host 窗格不在线时立即返回明确错误（而不是傻等 90s 超时），AI 层据此提醒用户正确用法
+    const now = Date.now();
+    const OFFLINE_MS = 15000; // 心跳每 5s 一次，15s 无心跳视为窗格离线
+    if (host && (!heartbeats[host] || now - heartbeats[host] > OFFLINE_MS)) {
+      sendJson(res, 200, { ok: false, code: 'addin_offline', error: `「${host}」加载项窗格未开启：请打开该文档，并在 开始/开发人员 → 加载项 → 开发人员加载项 中打开「DSH Office 执行器」窗格并保持开启，然后重试` });
+      return;
+    }
+    if (!host && Object.keys(heartbeats).length === 0) {
+      sendJson(res, 200, { ok: false, code: 'addin_offline', error: '没有在线的 Office 加载项：请打开 Word/Excel/PowerPoint 文档，并在 开始/开发人员 → 加载项 → 开发人员加载项 中打开「DSH Office 执行器」窗格并保持开启，然后重试' });
+      return;
+    }
     const commandId = crypto.randomUUID();
     const result = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve({ ok: false, error: 'timeout: no add-in heartbeat or execution', timeout: true }), COMMAND_TIMEOUT_MS);
