@@ -203,6 +203,30 @@ function setConfirmMode(mode) {
   log(`确认模式: ${mode}`);
 }
 
+// 按 action 提取"修改后内容"（审批面板展示用）
+function afterContent(action, args) {
+  const a = args || {};
+  switch (action) {
+    case 'write_selection': return a.text !== undefined ? a.text : '(未提供)';
+    case 'replace_all': return `将 "${a.search}" 全部替换为 "${a.replace}"`;
+    case 'insert_paragraph': return a.text !== undefined ? a.text : '(未提供)';
+    case 'append_text': return a.text !== undefined ? a.text : '(未提供)';
+    case 'insert_table': return JSON.stringify(a.rows || []);
+    case 'insert_image': return '(插入图片)';
+    case 'write_range': return JSON.stringify(a.values || a.formulas || []);
+    case 'format_range': return JSON.stringify(a);
+    case 'format_selection': return JSON.stringify(a);
+    case 'set_font': return `全文设为字体：${a.font}`;
+    case 'apply_style': return `应用样式：${a.style}（${a.scope || 'selection'}）`;
+    case 'rename_sheet': return `${a.oldName} → ${a.newName}`;
+    case 'delete_sheet': return `删除工作表：${a.name}`;
+    case 'remove_empty_paragraphs': return '删除全部空段落（跳过图片段落）';
+    case 'apply_sort': return JSON.stringify(a);
+    case 'apply_filter': return JSON.stringify(a);
+    default: return JSON.stringify(a);
+  }
+}
+
 function renderApproval() {
   const box = document.getElementById('approval');
   if (!box) return;
@@ -213,6 +237,8 @@ function renderApproval() {
   document.getElementById('approval-preview').textContent = approvalPending.preview
     ? JSON.stringify(approvalPending.preview, null, 2).slice(0, 1500)
     : '(预览不可用)';
+  const after = document.getElementById('approval-after');
+  if (after) after.textContent = afterContent(approvalPending.cmd.action, approvalPending.cmd.args || {});
 }
 
 async function showApproval(cmd) {
