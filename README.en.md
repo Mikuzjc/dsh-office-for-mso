@@ -36,8 +36,9 @@ Wait for `listening on http://127.0.0.1:3000`.
 
 > **Platforms**: the core (server.js + add-in) only requires Node.js and runs on Windows / macOS (Office desktop on macOS supports add-in sideload too); `install.ps1`/Scheduled Task is an **optional** Windows-only auto-hosting — on macOS just run `node server.js` manually.
 
-> **One-click sideload (recommended, no manual Office menu needed)**:
+> **One-click sideload (recommended; Windows-only — uses the WEF registry mechanism; on macOS use the Office menu to load manually)**:
 > ```powershell
+> cd <your-project-dir>
 > powershell -ExecutionPolicy Bypass -File sideload.ps1   # register (-Remove to unregister)
 > ```
 > Writes to the WEF registry; **close and reopen the Office document** and the pane appears automatically.
@@ -55,6 +56,17 @@ Then just **keep the document open**; the pane can be minimized/dragged to a cor
 
 > Older Office versions with the "Upload My Add-in" entry can use it directly.
 > Moving to another machine: repeat the two steps above (bridge service + upload manifest).
+
+### 1.3 First use
+
+After installation, you need to **open the add-in once** before DSH can operate on documents:
+
+1. Open a Word / Excel / PowerPoint document
+2. **Home (or Developer) tab → Add-ins → Developer Add-ins → "DSH Office Executor"**
+3. Once the pane appears (showing **Connected: waiting for DSH commands**), you can issue commands from the DSH session
+4. The pane can be resized small / dragged to a corner — it is only a status display
+
+Keep the document open afterwards; if the pane is closed, repeat step 2 to reopen it.
 
 ## 2. Architecture
 

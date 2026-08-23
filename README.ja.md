@@ -36,8 +36,9 @@ node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps
 
 > **プラットフォーム**：中核（server.js + アドイン）は Node.js のみ必要で Windows / macOS で動作（macOS の Office デスクトップもアドインのサイドロードに対応）。`install.ps1`/タスクスケジューラは Windows 専用の**任意**の自動ホスティング。macOS では手動で `node server.js` を実行。
 
-> **ワンクリックサイドロード（推奨、Office メニュー操作不要）**：
+> **ワンクリックサイドロード（推奨；Windows 専用——WEF レジストリ機構に基づく；macOS では Office メニューから手動で読み込み）**：
 > ```powershell
+> cd <ご自身のプロジェクトディレクトリ>
 > powershell -ExecutionPolicy Bypass -File sideload.ps1   # 登録（-Remove で削除）
 > ```
 > WEF レジストリに書き込み、**Office ドキュメントを閉じて開き直す**とペインが自動表示されます。
@@ -55,6 +56,17 @@ node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps
 
 > 旧バージョンの Office で「アドインのアップロード」エントリがある場合は直接使用可能。
 > 別のマシンへ：上記2ステップ（ブリッジサービス + manifest アップロード）を繰り返すだけです。
+
+### 1.3 初回利用
+
+インストール後、DSH がドキュメントを操作できるようになる前に**アドインを一度手動で開く**必要があります：
+
+1. Word / Excel / PowerPoint ドキュメントを開く
+2. **ホーム（または開発者）タブ → アドイン → 開発者アドイン → 「DSH Office 実行エンジン」**
+3. ペインが表示され（**接続済み: DSH コマンド待機中** と表示）、DSH セッションからコマンドを発行可能になります
+4. ペインは小さくリサイズ・隅に移動可能（ステータス表示のみ）
+
+その後はドキュメントを開いたままにしてください。ペインを閉じた場合は手順2を繰り返して再表示します。
 
 ## 2. アーキテクチャ
 

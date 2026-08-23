@@ -36,8 +36,9 @@ node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 
 > **平台**：核心（server.js + 加载项）仅依赖 Node.js，Windows / macOS 均可运行；`install.ps1`/计划任务为 Windows 专属的**可选**自动托管，macOS 手动 `node server.js` 即可。
 
-> **一键 sideload（推荐，无需手动点 Office 菜单）**：
+> **一键 sideload（推荐；Windows 专属——基于 WEF 注册表机制；macOS 请用 Office 菜单手动加载）**：
 > ```powershell
+> cd <你的项目目录>
 > powershell -ExecutionPolicy Bypass -File sideload.ps1   # 注册（-Remove 移除）
 > ```
 > 写入 WEF 注册表后，**关闭并重新打开 Office 文档**即自动出现窗格。
@@ -55,6 +56,17 @@ node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 
 > 旧版 Office 若仍有「上传我的加载项」入口，也可直接使用。
 > 换电脑：重复以上两步（桥接服务 + 上传 manifest）即可。
+
+### 1.3 首次使用
+
+安装后，需**手动打开一次加载项**，DSH 会话才能操作文档：
+
+1. 打开 Word / Excel / PowerPoint 文档
+2. **开始（或开发人员）标签页 → 加载项 → 开发人员加载项 → 「DSH Office 执行器」**
+3. 出现窗格（显示 **已连接：等待 DSH 指令**）后，即可在 DSH 会话下发指令
+4. 窗格可调小/拖到角落，无需持续关注（窗格只是状态显示）
+
+之后保持文档打开即可；窗格关闭时重复步骤 2 重新打开。
 
 ## 二、架构
 
