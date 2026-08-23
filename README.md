@@ -21,21 +21,23 @@
 
 ## 一、部署（一次性）
 
-### 1. 启动桥接服务
+### 1. 克隆仓库并启动桥接服务
 
 ```powershell
-cd C:\Users\User\dsh\office-addin
-node server.js
+git clone https://github.com/Mikuzjc/dsh-office-for-mso.git
+cd dsh-office-for-mso
+node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
 ```
 
 看到 `listening on http://127.0.0.1:3000` 即可。
+（下文路径示例均以你的实际项目目录为准。）
 
 ### 2. 把加载项加载到 Office（sideload）
 
 打开任意 Word / Excel / PowerPoint 文档：
 
 1. 菜单 **插入 → 我的加载项 → 管理我的加载项 → 上传我的加载项**
-2. 选择 `C:\Users\User\dsh\office-addin\manifest.xml`
+2. 选择 `<你的项目目录>\manifest.xml`
 3. 侧边栏出现「DSH Office 执行器」窗格，显示 **已连接：等待 DSH 指令** 即成功
 
 之后**保持文档打开**即可；窗格可缩小/拖角落，无需操作。
@@ -138,8 +140,8 @@ node server.js
 ## 六、服务托管（生产环境）
 
 **推荐：Windows 计划任务「DSH Office Bridge」（登录自启，静默运行）**
-- 触发器：用户登录时启动；Settings：常驻无时限、StartWhenAvailable
-- 启动命令：`wscript C:\Users\User\.dsh\run-hidden.vbs "node C:\Users\User\dsh\office-addin\server.js"`（静默，不闪窗）
+- **一键安装**：`powershell -ExecutionPolicy Bypass -File install.ps1`（自动按当前目录注册，跨机器通用，无需改路径）
+- 手动注册：触发器=用户登录时启动；Settings=常驻无时限、StartWhenAvailable；启动命令=`wscript <项目目录>\run-hidden.vbs "node <项目目录>\server.js"`（静默，不闪窗）
 - 手动管理：
   - 启动：`Start-ScheduledTask -TaskName 'DSH Office Bridge'`
   - 停止：按端口找进程 `netstat -ano | findstr :3000` → `Stop-Process -Id <pid>`

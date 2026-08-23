@@ -21,21 +21,23 @@
 
 ## 1. セットアップ（初回のみ）
 
-### 1.1 ブリッジサービス起動
+### 1.1 リポジトリをクローンしてブリッジサービスを起動
 
 ```powershell
-cd C:\Users\User\dsh\office-addin
-node server.js
+git clone https://github.com/Mikuzjc/dsh-office-for-mso.git
+cd dsh-office-for-mso
+node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps1
 ```
 
 `listening on http://127.0.0.1:3000` が表示されれば OK。
+（以降のパス例はすべてご自身の実際のプロジェクトディレクトリを指します。）
 
 ### 1.2 アドインを Office にサイドロード
 
 任意の Word / Excel / PowerPoint ドキュメントを開きます：
 
 1. メニュー **挿入 → アドイン → アドインの管理 → アドインをアップロード**
-2. `C:\Users\User\dsh\office-addin\manifest.xml` を選択
+2. `<ご自身のプロジェクトディレクトリ>\manifest.xml` を選択
 3. サイドバーに「DSH Office 実行エンジン」ペインが表示され、**接続済み: DSH コマンド待機中** となれば成功
 
 その後は**ドキュメントを開いたまま**にしてください。ペインは最小化・隅に移動して構いません。
@@ -138,8 +140,8 @@ node server.js
 ## 6. サービスホスティング（本番）
 
 **推奨：Windows タスクスケジューラ「DSH Office Bridge」（ログオン時自動起動、サイレント）**
-- トリガー：ユーザーログオン時；設定：時間制限なし（常駐）、StartWhenAvailable
-- 起動コマンド：`wscript C:\Users\User\.dsh\run-hidden.vbs "node C:\Users\User\dsh\office-addin\server.js"`（サイレント、ウィンドウ表示なし）
+- **ワンクリックインストール**：`powershell -ExecutionPolicy Bypass -File install.ps1`（カレントディレクトリを自動で使用して登録、マシン非依存でパス編集不要）
+- 手動登録：トリガー=ユーザーログオン時；設定=時間制限なし（常駐）、StartWhenAvailable；起動コマンド=`wscript <プロジェクトディレクトリ>\run-hidden.vbs "node <プロジェクトディレクトリ>\server.js"`（サイレント、ウィンドウ表示なし）
 - 手動管理：
   - 起動：`Start-ScheduledTask -TaskName 'DSH Office Bridge'`
   - 停止：ポートでプロセス特定 `netstat -ano | findstr :3000` → `Stop-Process -Id <pid>`

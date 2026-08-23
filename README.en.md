@@ -21,21 +21,23 @@ You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service loca
 
 ## 1. Setup (one-time)
 
-### 1.1 Start the bridge service
+### 1.1 Clone the repo and start the bridge service
 
 ```powershell
-cd C:\Users\User\dsh\office-addin
-node server.js
+git clone https://github.com/Mikuzjc/dsh-office-for-mso.git
+cd dsh-office-for-mso
+node server.js   # or: powershell -ExecutionPolicy Bypass -File start.ps1
 ```
 
 Wait for `listening on http://127.0.0.1:3000`.
+(All path examples below refer to your actual project directory.)
 
 ### 1.2 Sideload the add-in into Office
 
 Open any Word / Excel / PowerPoint document:
 
 1. Menu **Insert → My Add-ins → Manage My Add-ins → Upload My Add-in**
-2. Select `C:\Users\User\dsh\office-addin\manifest.xml`
+2. Select `<your-project-dir>\manifest.xml`
 3. The **DSH Office Executor** pane appears in the sidebar, showing **Connected: waiting for DSH commands**
 
 Then just **keep the document open**; the pane can be minimized/dragged to a corner.
@@ -138,8 +140,8 @@ Then just **keep the document open**; the pane can be minimized/dragged to a cor
 ## 6. Service hosting (production)
 
 **Recommended: Windows Scheduled Task `DSH Office Bridge` (auto-start at logon, silent)**
-- Trigger: on user logon; Settings: no time limit (persistent), StartWhenAvailable
-- Launch command: `wscript C:\Users\User\.dsh\run-hidden.vbs "node C:\Users\User\dsh\office-addin\server.js"` (silent, no window flash)
+- **One-click install**: `powershell -ExecutionPolicy Bypass -File install.ps1` (registers automatically using the current directory — machine-agnostic, no path editing needed)
+- Manual: Trigger = on user logon; Settings = no time limit (persistent), StartWhenAvailable; launch command = `wscript <project-dir>\run-hidden.vbs "node <project-dir>\server.js"` (silent, no window flash)
 - Manual management:
   - Start: `Start-ScheduledTask -TaskName 'DSH Office Bridge'`
   - Stop: find process by port `netstat -ano | findstr :3000` → `Stop-Process -Id <pid>`
