@@ -21,15 +21,17 @@
 
 ## 1. セットアップ（初回のみ）
 
-### 1.1 リポジトリをクローンしてブリッジサービスを起動
+### 1.1 クローンしてインストール（推奨：ワンクリック常駐サービス）
 
 ```powershell
 git clone https://github.com/Mikuzjc/dsh-office-for-mso.git
 cd dsh-office-for-mso
-node server.js   # または：powershell -ExecutionPolicy Bypass -File start.ps1
+npm run setup   # ワンクリック：タスクスケジューラ登録（ログオン時自起動・静默常駐）+ サービス起動 + アドイン自動登録（初回は UAC が表示されるので「はい」をクリック）
 ```
 
-`listening on http://127.0.0.1:3000` が表示されれば OK。
+> **`npm run setup` が正式インストール**：サービスは Windows タスクスケジューラが管理し、**ログオン時自起動・バックグラウンド常駐、ターミナルを閉じても影響なし**。
+> 簡単なプレビューのみ：`node server.js`（フォアグラウンド、ターミナルを閉じると停止）。
+
 **Windows では起動時にアドインが自動登録（WEF レジストリ）されます**——初回は**Office ドキュメントを閉じて開き直す**とペインが表示されます。macOS では Office メニューから手動で読み込んでください（1.2/1.3 参照）。
 （以降のパス例はすべてご自身の実際のプロジェクトディレクトリを指します。）
 

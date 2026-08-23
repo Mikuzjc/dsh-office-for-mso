@@ -21,16 +21,18 @@
 
 ## 一、部署（一次性）
 
-### 1. 克隆仓库并启动桥接服务
+### 1. 克隆仓库并安装（推荐：一键常驻服务）
 
 ```powershell
 git clone https://github.com/Mikuzjc/dsh-office-for-mso.git
 cd dsh-office-for-mso
-node server.js   # 或：powershell -ExecutionPolicy Bypass -File start.ps1
+npm run setup   # 一键：注册计划任务（登录自启、静默常驻）+ 启动服务 + 自动注册加载项（首次会弹 UAC，点「是」）
 ```
 
-看到 `listening on http://127.0.0.1:3000` 即可。
-**Windows 下启动时会自动注册加载项（WEF 注册表）**——首次请**关闭并重新打开 Office 文档**，窗格即出现；macOS 需用 Office 菜单手动加载（见 1.2/1.3）。
+> **`npm run setup` 是正式安装**：服务由 Windows 计划任务托管，**登录自启、后台常驻，关闭终端不影响运行**。
+> 只想临时预览：`node server.js`（前台运行，关终端即停服务）。
+
+**Windows 下服务启动时会自动注册加载项（WEF 注册表）**——首次请**关闭并重新打开 Office 文档**，窗格即出现；macOS 需用 Office 菜单手动加载（见 1.2/1.3）。
 （下文路径示例均以你的实际项目目录为准。）
 
 ### 2. 把加载项加载到 Office（sideload）

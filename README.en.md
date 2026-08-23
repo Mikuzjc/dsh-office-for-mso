@@ -21,15 +21,17 @@ You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service loca
 
 ## 1. Setup (one-time)
 
-### 1.1 Clone the repo and start the bridge service
+### 1.1 Clone and install (recommended: one-click persistent service)
 
 ```powershell
 git clone https://github.com/Mikuzjc/dsh-office-for-mso.git
 cd dsh-office-for-mso
-node server.js   # or: powershell -ExecutionPolicy Bypass -File start.ps1
+npm run setup   # one-click: register Scheduled Task (auto-start at logon, silent persistent) + start service + auto-register add-in (first run shows a UAC prompt — click Yes)
 ```
 
-Wait for `listening on http://127.0.0.1:3000`.
+> **`npm run setup` is the official install**: the service is hosted by the Windows Scheduled Task — **auto-starts at logon, runs persistently in the background, closing the terminal does not affect it**.
+> For a quick preview only: `node server.js` (foreground; closing the terminal stops the service).
+
 **On Windows the add-in is auto-registered on startup (WEF registry)** — on first run **close and reopen the Office document** and the pane appears; on macOS load manually via the Office menu (see 1.2/1.3).
 (All path examples below refer to your actual project directory.)
 
