@@ -93,6 +93,14 @@ function getCodeVersion() {
   } catch (e) { return '0'; }
 }
 
+// actions 版本：actions.js 的 mtime（毫秒），与 /office/actions-version 一致
+function getActionsVersion() {
+  try {
+    const st = fs.statSync(path.join(ROOT, 'actions.js'));
+    return String(st.mtimeMs);
+  } catch (e) { return '0'; }
+}
+
 // ---- 启动时自动 sideload 加载项（Windows：写入 HKCU WEF Developer 注册表，普通权限即可）----
 // 让 `node server.js` 一步完成：启动服务 + 注册加载项。macOS/其他平台跳过（Office 菜单手动加载）。
 function ensureSideloaded() {
@@ -147,6 +155,12 @@ const server = http.createServer(async (req, res) => {
         // 前缀注入代码版本标记（须在文件头部，taskpane.js 顶部读取 window.__CODE_VERSION__）
         const src = fs.readFileSync(full, 'utf8');
         res.end(`;window.__CODE_VERSION__ = ${JSON.stringify(getCodeVersion())};\n` + src);
+        return;
+      }
+      if (file === 'actions.js') {
+        // 前缀注入 actions 版本标记：窗格热更新后可验证新脚本确实执行（防止加载成功但 IIFE 抛错/旧值残留）
+        const src = fs.readFileSync(full, 'utf8');
+        res.end(`;window.__ACTIONS_VERSION__ = ${JSON.stringify(getActionsVersion())};\n` + src);
         return;
       }
       fs.createReadStream(full).pipe(res);

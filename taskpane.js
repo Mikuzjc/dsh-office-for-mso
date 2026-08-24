@@ -161,12 +161,20 @@ function loadActionsScript() {
 async function ensureActions() {
   try {
     const r = await api('/office/actions-version');
-    if (r && r.version && r.version !== loadedActionsVersion) {
+    if (r && r.version) {
+      if (r.version === loadedActionsVersion) return;
       await loadActionsScript();
-      loadedActionsVersion = r.version;
-      log('actions 已加载/热更新: ' + r.version.slice(0, 10));
+      // 验证新脚本确实执行：版本标记匹配 + __EXECUTE__ 已定义（防"加载成功但 IIFE 抛错/旧值残留"）
+      if (window.__ACTIONS_VERSION__ === r.version && typeof window.__EXECUTE__ === 'function') {
+        loadedActionsVersion = r.version;
+        log('actions 已热更新: ' + r.version.slice(0, 10));
+      } else {
+        log('⚠️ actions 热更新失败（版本不匹配或未执行），将重试');
+      }
     }
-  } catch (e) { /* 忽略：桥接未就绪时下次再试 */ }
+  } catch (e) {
+    log('⚠️ actions 版本检查失败: ' + (e && e.message || e));
+  }
 }
 
 // ================= 分发器 =================
@@ -259,17 +267,20 @@ async function showApproval(cmd) {
   const p = await previewP;
   approvalPending = { cmd, preview: p.ok ? p.result : null, meta };
   renderApproval();
-  // 等待用户在窗格点击（确认/拒绝）
-  const decision = await new Promise((resolve) => { approvalPending.resolve = resolve; });
+  // 等待用户在窗格点击（确认/拒绝）；审批挂起 120s 未操作 → 自动解除（视为拒绝），防 poll 永久卡死
+  const decision = await new Promise((resolve) => {
+    approvalPending.resolve = resolve;
+    setTimeout(() => { if (approvalPending && approvalPending.resolve) approvalPending.resolve('timeout'); }, 120000);
+  });
   const { cmd: c } = approvalPending;
   approvalPending = null;
   approvalActive = false;
   renderApproval();
-  if (decision === 'reject') {
+  if (decision === 'reject' || decision === 'timeout') {
     return api('/office/result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commandId: c.commandId, ok: false, error: '用户在窗格拒绝了该操作', code: 'rejected' }),
+      body: JSON.stringify({ commandId: c.commandId, ok: false, error: decision === 'reject' ? '用户在窗格拒绝了该操作' : '审批超时未操作，已取消', code: 'rejected' }),
     });
   }
   const out = await execute(c.action, Object.assign({}, c.args || {}, { confirm: true }));
