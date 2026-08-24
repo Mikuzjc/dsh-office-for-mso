@@ -234,11 +234,13 @@ function renderApproval() {
   box.style.display = 'block';
   document.getElementById('approval-action').textContent =
     `${approvalPending.cmd.action} @ ${approvalPending.cmd.host || hostName()}`;
-  // 当前状态预览：有 text 字段直接显示文本（不要 {"text": ...} JSON 框）
+  // 当前状态预览：有 text 直接显示文本；replace_all 的 hits 列表友好显示（将替换 N 处 + 命中内容）
   let previewText = '(预览不可用)';
   const p = approvalPending.preview;
   if (p) {
     if (typeof p.text === 'string') previewText = p.text;
+    else if (Array.isArray(p.hits) && p.hits.length) previewText = `将替换 ${p.wouldReplace} 处：\n` + p.hits.map((h, i) => `${i + 1}. ${h}`).join('\n');
+    else if (p.wouldReplace !== undefined) previewText = `将替换 ${p.wouldReplace} 处`;
     else if (p.text !== undefined) previewText = String(p.text);
     else previewText = JSON.stringify(p, null, 2);
   }

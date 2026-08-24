@@ -192,11 +192,15 @@
       try {
         return await Word.run(async (ctx) => {
           const results = ctx.document.body.search(search, { matchCase: false, matchWholeWord: false, ignoreSpace: true });
+          if (args.dryRun) {
+            // 预览：返回命中数量 + 命中文本上下文（审批面板可看清将替换什么）
+            results.load('items/text');
+            await ctx.sync();
+            const hits = results.items.map((r) => r.text).slice(0, 20);
+            return okResult({ host: 'Word', dryRun: true, wouldReplace: results.items.length, hits });
+          }
           results.load('length');
           await ctx.sync();
-          if (args.dryRun) {
-            return okResult({ host: 'Word', dryRun: true, wouldReplace: results.items.length });
-          }
           let count = 0;
           for (let i = 0; i < results.items.length; i++) {
             results.items[i].insertText(replace, Word.InsertLocation.replace);
