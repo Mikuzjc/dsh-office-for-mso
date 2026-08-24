@@ -1014,6 +1014,23 @@
       const debug = (e && e.debugInfo) ? (' [debug] ' + JSON.stringify(e.debugInfo)) : '';
       return errResult('execution', String(e && e.message || e) + debug);
     });
+    // 写后验证：覆盖操作执行成功后，再读一次被操作区域（afterState）+ 附整个文档全文（避免盲人摸象）
+    const withAfterState = (r) => {
+      if (meta.destructive && r.ok && meta.preview && r.result && typeof r.result === 'object') {
+        return Promise.resolve(meta.preview(host, args)).then((a) => {
+          if (a.ok) r.result.afterState = a.result;
+          // 附整个文档：Word 全文 / Excel 工作表已用区域；PPT 全文件读取慢，跳过
+          if (host !== 'PowerPoint') {
+            return Promise.resolve(readDocument(host, {})).then((d) => {
+              if (d.ok) r.result.document = d.result.text;
+              return r;
+            });
+          }
+          return r;
+        });
+      }
+      return Promise.resolve(r);
+    };
     // 覆盖类操作：先取确认模式
     const modeP = window.__CONFIRM_MODE__ !== undefined
       ? Promise.resolve(window.__CONFIRM_MODE__)
@@ -1023,16 +1040,16 @@
       return modeP.then((mode) => Promise.resolve(meta.preview(host, args)).then((p) => {
         if (!p.ok) return p;
         if (mode === 'auto') {
-          // 自动模式：re-read 完成，直接执行；结果附 previousState（被操作前的状态）供 AI 核验
+          // 自动模式：改前 re-read（previousState）→ 执行 → 改后验证（afterState）
           return run().then((r) => {
             if (r.ok && r.result && typeof r.result === 'object') r.result.previousState = p.result;
-            return r;
+            return withAfterState(r);
           });
         }
         // ask 模式：必须用户确认
         return { ok: false, code: 'confirm_required', error: '覆盖类操作需确认：请向用户展示当前状态预览（result.preview），确认后带 confirm:true 重发', result: { preview: p.result, action, args } };
       }));
     }
-    return run();
+    return withAfterState(run());
   };
 })();
