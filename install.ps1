@@ -17,14 +17,18 @@ $projectDir = $PSScriptRoot
 $nodePath = (Get-Command node -ErrorAction Stop).Source
 $serverPath = Join-Path $projectDir 'server.js'
 
-# 任务由 powershell 静默启动 node（完整路径，不依赖 PATH/vbs；-WindowStyle Hidden 无窗口）
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"& '$nodePath' '$serverPath'`""
+# 任务由 wscript + run-hidden.vbs 静默启动 node（vbs 的 sh.Run 窗口模式 0=强制隐藏，对 node 子进程可靠；
+# 双参数直传 node 完整路径 + server 完整路径，不经过 cmd，避免引号坑）
+$vbsPath = Join-Path $projectDir 'run-hidden.vbs'
+$vbsContent = 'Set sh = CreateObject("WScript.Shell")' + "`r`n" + 'sh.Run """" & WScript.Arguments(0) & """ """ & WScript.Arguments(1) & """", 0, False'
+Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
+$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "`"$vbsPath`" `"$nodePath`" `"$serverPath`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
 Write-Host "[OK] 计划任务已注册: $taskName" -ForegroundColor Green
-Write-Host "     启动命令: wscript `"$vbsPath`" `"$nodePath $serverPath`"" -ForegroundColor Gray
+Write-Host "     启动命令: wscript `"$vbsPath`" `"$nodePath`" `"$serverPath`"" -ForegroundColor Gray
 
 Start-ScheduledTask -TaskName $taskName
 Start-Sleep -Seconds 2
