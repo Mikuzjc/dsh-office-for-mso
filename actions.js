@@ -95,7 +95,9 @@
 
   async function writeSelection(host, args) {
     if (args.text === undefined || args.text === null) return errResult('bad_args', 'text required');
-    return setSelectionTextAsync(args.text);
+    // 段落规范化：\r\n / \r → \n（setSelectedDataAsync 对 \n 转 Word 段落标记）
+    const text = String(args.text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    return setSelectionTextAsync(text);
   }
 
   async function readDocument(host, args) {

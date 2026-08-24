@@ -234,9 +234,15 @@ function renderApproval() {
   box.style.display = 'block';
   document.getElementById('approval-action').textContent =
     `${approvalPending.cmd.action} @ ${approvalPending.cmd.host || hostName()}`;
-  document.getElementById('approval-preview').textContent = approvalPending.preview
-    ? JSON.stringify(approvalPending.preview, null, 2).slice(0, 1500)
-    : '(预览不可用)';
+  // 当前状态预览：有 text 字段直接显示文本（不要 {"text": ...} JSON 框）
+  let previewText = '(预览不可用)';
+  const p = approvalPending.preview;
+  if (p) {
+    if (typeof p.text === 'string') previewText = p.text;
+    else if (p.text !== undefined) previewText = String(p.text);
+    else previewText = JSON.stringify(p, null, 2);
+  }
+  document.getElementById('approval-preview').textContent = previewText.slice(0, 1500);
   const after = document.getElementById('approval-after');
   if (after) after.textContent = afterContent(approvalPending.cmd.action, approvalPending.cmd.args || {});
 }
