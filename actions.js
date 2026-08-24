@@ -1044,9 +1044,12 @@
       return modeP.then((mode) => Promise.resolve(meta.preview(host, args)).then((p) => {
         if (!p.ok) return p;
         if (mode === 'auto') {
-          // 自动模式：改前 re-read（previousState）→ 执行 → 改后验证（afterState）
+          // 自动模式：改前 re-read（previousState）→ 执行 → 改后验证（afterState）；标记 approvedBy=auto
           return run().then((r) => {
-            if (r.ok && r.result && typeof r.result === 'object') r.result.previousState = p.result;
+            if (r.ok && r.result && typeof r.result === 'object') {
+              r.result.previousState = p.result;
+              r.result.approvedBy = 'auto';
+            }
             return withAfterState(r);
           });
         }

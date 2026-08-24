@@ -273,6 +273,8 @@ async function showApproval(cmd) {
     });
   }
   const out = await execute(c.action, Object.assign({}, c.args || {}, { confirm: true }));
+  // 标记：该操作经用户审批后执行（区别于自动模式直行）
+  if (out.ok && out.result && typeof out.result === 'object') out.result.approvedBy = 'user';
   return api('/office/result', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
