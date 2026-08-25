@@ -911,6 +911,25 @@
       host: String(Office.context.host || ''),
       platform: String(Office.context.platform || ''),
       officeVersion: String(Office.version || ''),
+      // Common API 探测：Office.context.document 可用能力（与 Word.js 对象模型是两套体系，一直可用）
+      commonApi: (function () {
+        try {
+          const d = Office.context.document;
+          const proto = Object.getOwnPropertyNames(Object.getPrototypeOf(d) || {}).concat(Object.keys(d));
+          return {
+            url: String(d.url || ''),
+            title: String(d.title || ''),
+            mode: String(d.mode || ''),
+            settings: !!d.settings,
+            customProperties: !!d.customProperties,
+            getFileAsync: typeof d.getFileAsync === 'function',
+            getSelectedDataAsync: typeof d.getSelectedDataAsync === 'function',
+            setSelectedDataAsync: typeof d.setSelectedDataAsync === 'function',
+            addHandlerAsync: typeof d.addHandlerAsync === 'function',
+            availableKeys: proto.filter((k) => typeof d[k] !== 'function').slice(0, 30),
+          };
+        } catch (e) { return { error: String(e && e.message || e) }; }
+      })(),
       diagnostics: (function () {
         try {
           const d = Office.context.diagnostics || {};
