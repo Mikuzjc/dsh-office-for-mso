@@ -17,14 +17,15 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 
 ## 使用流程
 
-1. **查在线文档**：`GET http://127.0.0.1:3000/office/status` → `hosts` 字段列出在线文档（Word/Excel/PowerPoint）
+1. **查在线实例**：`GET http://127.0.0.1:3000/office/status` → `instances` 字段列出**每个在线窗格的实例**：`{instanceId, host, docUrl}`（docUrl=文档路径，用于识别是哪个文档）
    - 目标文档不在线 → 提醒用户：打开目标文档，并在 **开始/开发人员 → 加载项 → 开发人员加载项** 中打开「DSH Office 执行器」窗格并保持开启，然后重试
 2. **查可用能力**（可选）：`GET /office/capabilities` → action 注册表（hosts / 参数 / 是否破坏性）
-3. **发指令**：`POST /office/command`，body：`{ "action": "...", "host": "Word|Excel|PowerPoint", "args": {...} }`
-   - `host` 指定目标文档，避免多文档同时打开时抢指令
-   - 指令一次一条、串行等待结果（超时 90s）
+3. **发指令**：`POST /office/command`，body：`{ "action": "...", "instance": "<instanceId>", "args": {...} }`
+   - **`instance` 必填（强制）**：先按用户目标文档的 docUrl 匹配 `instances` 里的 instanceId 带上；**不带 instance 会被拒绝**（`code: instance_required`）——多文档时未指定实例会导致指令被错误文档执行（曾发生：测试文件激活时正式论文收到审批）
+   - `host` 可附带（Word/Excel/PowerPoint，校验用）；指令一次一条、串行等待结果（超时 90s）
 4. **处理结果/错误**：
    - `ok: true` → 用 `result` 完成用户任务
+   - `code: instance_required` → 先查 status 拿 instanceId 再重发
    - `code: addin_offline` → 窗格未开启，提醒用户开窗格，**不要重试**
    - `code: unknown_action` → 先查 capabilities 用正确的 action 名
    - `code: requirement / unsupported` → 该 API 在此环境不可用，如实告知用户（绝不假装成功）

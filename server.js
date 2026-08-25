@@ -194,7 +194,11 @@ const server = http.createServer(async (req, res) => {
     if (!body.action || typeof body.action !== 'string') { sendJson(res, 400, { ok: false, error: 'action required' }); return; }
     const host = body.host && typeof body.host === 'string' ? body.host : null;
     if (host && !VALID_HOSTS.includes(host)) { sendJson(res, 400, { ok: false, error: `invalid host: ${host} (valid: ${VALID_HOSTS.join('/')})` }); return; }
-    const instance = body.instance && typeof body.instance === 'string' ? body.instance : null; // 可选：指定加载项实例（多文档精确路由）
+    const instance = body.instance && typeof body.instance === 'string' ? body.instance : null; // 必填：指定加载项实例（多文档精确路由，防误执行）
+    if (!instance) {
+      sendJson(res, 200, { ok: false, code: 'instance_required', error: '必须指定加载项实例（instanceId）：先 GET /office/status 查看 instances（按 docUrl 识别目标文档），带 instance 重发；多文档时未指定实例会导致指令被错误文档执行' });
+      return;
+    }
     if (pending) { sendJson(res, 409, { ok: false, error: 'a command is already pending' }); return; }
     // 快速失败：目标 host/instance 窗格不在线时立即返回明确错误（而不是傻等 90s 超时）
     const now = Date.now();
