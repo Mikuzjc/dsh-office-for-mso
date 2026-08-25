@@ -41,7 +41,8 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 - **工作表管理**：`list_sheets` / `add_sheet` / `rename_sheet` / `delete_sheet`
 - **格式化**：`format_selection`（选区）/ `format_range`（Excel 区域）/ `set_font`（Word 全文）/ `apply_style`（Word 内置样式）
 - **查找**：`search`（Word，支持通配符）；**全文替换**：`replace_all`（**先 dryRun 预览**）
-- **定位反馈**：`locate_and_blink`（**零副作用**：只做选中/取消选中 UI 反馈，不修改文档内容/样式/撤销栈）——写操作后定位到修改位置并闪烁高亮。定位器三选一：`{text: "片段"}`（定位首个匹配文本，Word/Excel 通用）、`{bookmark|anchor: "名"}`（Word 书签/Excel 命名区域）、`{range|address: "A1:B5"}`（Excel 区域，可带 `sheet`）；可选 `blinks`（默认 3，1-5）、`interval`（默认 300ms，100-800）。用法：写完内容后 `locate_and_blink {text: <刚写入的片段>}`，让用户一眼看到改动位置；定位不到返回 `execution: not found`，如实转告
+- **改完自动选中**（内置约定，无需额外指令）：`replace_all`（Word）选中**最后一处**修改、`append_text` / `insert_paragraph` 选中插入内容、`write_range`（Excel）选中写入区域——结果里 `selected:true`。**多处无法同时选中**（Office.js 单选区），多处替换只选中最后一处示意
+- **定位选中**：`locate_select`（零副作用：只做选中，不改文档内容/样式/撤销栈）——定位器三选一 `{text: "片段"}`（Word/Excel 首个匹配）、`{bookmark|anchor: "名"}`（Word 书签/Excel 命名区域）、`{range|address: "A1:B5"}`（Excel 区域，可带 `sheet`）；`blinks` 默认 0 = 只选中保持，`blinks: 2-3` 才闪烁；定位不到返回 `execution: not found`，如实转告
 
 ## 安全与边界
 

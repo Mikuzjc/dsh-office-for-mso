@@ -202,12 +202,18 @@
           results.load('length');
           await ctx.sync();
           let count = 0;
+          let lastRange = null;
           for (let i = 0; i < results.items.length; i++) {
-            results.items[i].insertText(replace, Word.InsertLocation.replace);
+            lastRange = results.items[i];
+            lastRange.insertText(replace, Word.InsertLocation.replace);
             count++;
           }
           await ctx.sync();
-          return okResult({ replaced: count, host: 'Word' });
+          // 改完自动选中最后一处修改（保持高亮反馈；Office.js 只能单选区，多处无法同时选中）
+          if (lastRange) {
+            try { lastRange.select(); await ctx.sync(); } catch (e) { /* 选中失败不影响结果 */ }
+          }
+          return okResult({ replaced: count, host: 'Word', selected: lastRange ? true : false });
         });
       } catch (e) { return errResult('execution', String(e && e.message || e)); }
     }
@@ -231,9 +237,11 @@
     if (host === 'Word') {
       try {
         return await Word.run(async (ctx) => {
-          ctx.document.body.insertParagraph(text, Word.InsertLocation.end);
+          const para = ctx.document.body.insertParagraph(text, Word.InsertLocation.end);
           await ctx.sync();
-          return okResult({ appended: text.length, host: 'Word' });
+          // 改完自动选中追加的段落
+          try { para.getRange().select(); await ctx.sync(); } catch (e) { /* 选中失败不影响结果 */ }
+          return okResult({ appended: text.length, host: 'Word', selected: true });
         });
       } catch (e) { return errResult('execution', String(e && e.message || e)); }
     }
@@ -329,7 +337,9 @@
         const style = mapBuiltInStyle(args.style);
         if (style) { para.styleBuiltIn = Word.BuiltInStyleName[style]; }
         await ctx.sync();
-        return okResult({ host: 'Word', inserted: text.length, style: style || null, location: args.location || 'end' });
+        // 改完自动选中插入的段落
+        try { para.getRange().select(); await ctx.sync(); } catch (e) { /* 选中失败不影响结果 */ }
+        return okResult({ host: 'Word', inserted: text.length, style: style || null, location: args.location || 'end', selected: true });
       });
     } catch (e) { return errResult('execution', String(e && e.message || e)); }
   }
@@ -623,7 +633,9 @@
           if (args.values) range.values = args.values;
           if (args.formulas) range.formulas = args.formulas;
           await ctx.sync();
-          return okResult({ host: 'Excel', rows: data.length, cols: data[0].length, batched: 1 });
+          // 改完自动选中写入区域
+          try { range.select(); await ctx.sync(); } catch (e) { /* 选中失败不影响结果 */ }
+          return okResult({ host: 'Excel', rows: data.length, cols: data[0].length, batched: 1, selected: true });
         }
         const perChunk = Math.max(1, Math.floor(BATCH / data[0].length));
         let chunks = 0;
@@ -636,7 +648,9 @@
           await ctx.sync();
           chunks++;
         }
-        return okResult({ host: 'Excel', rows: data.length, cols: data[0].length, batched: chunks });
+        // 改完自动选中写入区域
+        try { excelRange(ctx, address).select(); await ctx.sync(); } catch (e) { /* 选中失败不影响结果 */ }
+        return okResult({ host: 'Excel', rows: data.length, cols: data[0].length, batched: chunks, selected: true });
       });
     } catch (e) { return errResult('execution', String(e && e.message || e)); }
   }
@@ -940,27 +954,28 @@
     return okResult(base);
   }
 
-  // ================= 定位 + 闪烁（locate_and_blink）=================
+  // ================= 定位 + 选中（locate_select）=================
   // 零副作用：仅"选中/取消选中"的 UI 反馈，不修改文档内容/样式/撤销栈。
   // 定位器（三选一）：
   //   bookmark | anchor —— Word 书签 / Excel 命名区域名
   //   text               —— Word 正文首个匹配；Excel 已用区域首个包含该文本的单元格
   //   range | address    —— Excel 区域地址（A1:B5 或 Sheet!A1:B5）
-  // 可选：sheet（Excel 工作表）、blinks（闪烁次数，默认 3，1-5）、interval（间隔 ms，默认 300，100-800）
+  // 可选：sheet（Excel 工作表）、blinks（闪烁次数，默认 0=只选中保持，>0 才闪烁）、interval（间隔 ms，默认 300，100-800）
   function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-  async function locateAndBlink(host, args) {
-    const blinks = Math.max(1, Math.min(5, Number(args.blinks) || 3));
+  async function locateSelect(host, args) {
+    const blinks = Math.max(0, Math.min(5, Number(args.blinks) || 0));
     const interval = Math.max(100, Math.min(800, Number(args.interval) || 300));
+    const reps = Math.max(1, blinks);
     const bookmark = (args.bookmark !== undefined ? String(args.bookmark) : args.anchor !== undefined ? String(args.anchor) : null);
     const text = args.text !== undefined ? String(args.text) : null;
     const address = (args.range !== undefined ? String(args.range) : args.address !== undefined ? String(args.address) : null);
-    if (!bookmark && !text && !address) return errResult('bad_args', 'locate_and_blink requires one of: bookmark/anchor, text, range/address');
+    if (!bookmark && !text && !address) return errResult('bad_args', 'locate_select requires one of: bookmark/anchor, text, range/address');
 
     if (host === 'Word') {
       try {
         let anySelected = false;
-        for (let i = 0; i < blinks; i++) {
+        for (let i = 0; i < reps; i++) {
           if (bookmark) {
             // 主路径：goToByIdAsync 滚动并选中书签内容（getBookmark 在部分宿主不可用，仅作增强）
             const navigated = await new Promise((resolve) => {
@@ -977,33 +992,35 @@
               });
               precise = true;
             } catch (e) { /* getBookmark 不可用，goToByIdAsync 已选中 */ }
-            if (!navigated && !precise) throw new Error(`locate_and_blink: bookmark not found: ${bookmark}`);
+            if (!navigated && !precise) throw new Error(`locate_select: bookmark not found: ${bookmark}`);
             if (navigated || precise) anySelected = true;
           } else {
             await Word.run(async (ctx) => {
               const results = ctx.document.body.search(text, { matchCase: false, ignoreSpace: true });
               results.load('length');
               await ctx.sync();
-              if (!results.items || results.items.length === 0) throw new Error(`locate_and_blink: text not found: ${text}`);
+              if (!results.items || results.items.length === 0) throw new Error(`locate_select: text not found: ${text}`);
               results.items[0].select();
               await ctx.sync();
             });
             anySelected = true;
           }
-          await sleep(interval);
-          await Word.run(async (ctx) => {
-            // 取消整块高亮：折叠为零宽选区（留在原位）。枚举可能不可用，用字面量 + 降级链。
-            const sel = ctx.document.getSelection();
-            try { sel.collapse('start'); }
-            catch (e) {
-              try { sel.getRange('start').select(); }
-              catch (e2) { /* 保持选中 */ }
-            }
-            await ctx.sync();
-          });
-          await sleep(interval);
+          if (blinks > 0) {
+            await sleep(interval);
+            await Word.run(async (ctx) => {
+              // 取消整块高亮：折叠为零宽选区（留在原位）。枚举可能不可用，用字面量 + 降级链。
+              const sel = ctx.document.getSelection();
+              try { sel.collapse('start'); }
+              catch (e) {
+                try { sel.getRange('start').select(); }
+                catch (e2) { /* 保持选中 */ }
+              }
+              await ctx.sync();
+            });
+            await sleep(interval);
+          }
         }
-        return okResult({ host: 'Word', located: bookmark || text, blinks, selected: anySelected });
+        return okResult({ host: 'Word', located: bookmark || text, selected: anySelected, blinks });
       } catch (e) { return errResult('execution', String(e && e.message || e)); }
     }
 
@@ -1034,34 +1051,56 @@
                 if (String((used.text[r] && used.text[r][c]) || '').indexOf(text) >= 0) { fr = r; fc = c; }
               }
             }
-            if (fr < 0) throw new Error(`locate_and_blink: text not found: ${text}`);
+            if (fr < 0) throw new Error(`locate_select: text not found: ${text}`);
             const cell = used.getCell(fr, fc);
             cell.load('address');
             await ctx.sync();
             targetAddress = cell.address;
           });
         }
-        if (!targetAddress) throw new Error('locate_and_blink: could not resolve target');
+        if (!targetAddress) throw new Error('locate_select: could not resolve target');
         const [sheetPart, addrPart] = targetAddress.indexOf('!') >= 0 ? targetAddress.split('!') : [sheetName, targetAddress];
-        for (let i = 0; i < blinks; i++) {
+        for (let i = 0; i < reps; i++) {
           await Excel.run(async (ctx) => {
             const ws = sheetPart ? ctx.workbook.worksheets.getItem(sheetPart) : ctx.workbook.worksheets.getActiveWorksheet();
             ws.getRange(addrPart).select(); // 整块选中（绿色边框）
             await ctx.sync();
           });
-          await sleep(interval);
-          await Excel.run(async (ctx) => {
-            const ws = sheetPart ? ctx.workbook.worksheets.getItem(sheetPart) : ctx.workbook.worksheets.getActiveWorksheet();
-            ws.getRange(addrPart.split(':')[0]).select(); // 选回首格：取消整块高亮、留在原位
-            await ctx.sync();
-          });
-          await sleep(interval);
+          if (blinks > 0) {
+            await sleep(interval);
+            await Excel.run(async (ctx) => {
+              const ws = sheetPart ? ctx.workbook.worksheets.getItem(sheetPart) : ctx.workbook.worksheets.getActiveWorksheet();
+              ws.getRange(addrPart.split(':')[0]).select(); // 选回首格：取消整块高亮、留在原位
+              await ctx.sync();
+            });
+            await sleep(interval);
+          }
         }
-        return okResult({ host: 'Excel', located: bookmark || text || targetAddress, blinks });
+        return okResult({ host: 'Excel', located: bookmark || text || targetAddress, selected: true, blinks });
       } catch (e) { return errResult('execution', String(e && e.message || e)); }
     }
 
-    return errResult('unsupported_host', 'locate_and_blink not supported in PowerPoint');
+    return errResult('unsupported_host', 'locate_select not supported in PowerPoint');
+  }
+
+  // ===== 审批预选（selectTarget）：ask 确认模式下，预览时主动选中将要修改的内容 =====
+  // 注意：Office.js 只能选中一个连续区域，"一次性多处"无法同时选中 —— 多处替换场景选第一处示意。
+  async function selectReplaceFirst(host, args) {
+    if (host !== 'Word' || !args.search) return;
+    try {
+      await Word.run(async (ctx) => {
+        const results = ctx.document.body.search(String(args.search), { matchCase: false, ignoreSpace: true });
+        results.load('length');
+        await ctx.sync();
+        if (results.items && results.items.length > 0) { results.items[0].select(); await ctx.sync(); }
+      });
+    } catch (e) { /* 预选失败不阻塞审批 */ }
+  }
+  async function selectExcelTargetRange(host, args) {
+    if (host !== 'Excel' || !args.address) return;
+    try {
+      await Excel.run(async (ctx) => { excelRange(ctx, String(args.address)).select(); await ctx.sync(); });
+    } catch (e) { /* 预选失败不阻塞审批 */ }
   }
 
   // ================= 注册表 =================
@@ -1090,7 +1129,7 @@
     write_selection: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: true, impl: writeSelection },
     read_document: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: readDocument },
     read_styles: { hosts: ['Word', 'Excel'], destructive: false, impl: readStyles },
-    replace_all: { hosts: ['Word', 'Excel'], destructive: true, impl: replaceAll },
+    replace_all: { hosts: ['Word', 'Excel'], destructive: true, impl: replaceAll, selectTarget: selectReplaceFirst },
     append_text: { hosts: ['Word'], destructive: false, impl: appendText },
     // Word
     read_tables: { hosts: ['Word'], destructive: false, impl: readTables },
@@ -1109,8 +1148,8 @@
     // Excel
     list_sheets: { hosts: ['Excel'], destructive: false, impl: listSheets },
     read_range: { hosts: ['Excel'], destructive: false, impl: readRange },
-    write_range: { hosts: ['Excel'], destructive: true, impl: writeRange },
-    format_range: { hosts: ['Excel'], destructive: true, impl: formatRange },
+    write_range: { hosts: ['Excel'], destructive: true, impl: writeRange, selectTarget: selectExcelTargetRange },
+    format_range: { hosts: ['Excel'], destructive: true, impl: formatRange, selectTarget: selectExcelTargetRange },
     insert_chart: { hosts: ['Excel'], destructive: false, impl: insertChart },
     add_sheet: { hosts: ['Excel'], destructive: false, impl: addSheet },
     rename_sheet: { hosts: ['Excel'], destructive: true, impl: renameSheet },
@@ -1123,8 +1162,8 @@
     ppt_read_notes: { hosts: ['PowerPoint'], destructive: false, impl: readPptNotes },
     // 环境诊断
     get_environment: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: getEnvironment },
-    // 定位 + 闪烁（零副作用：只做选中/取消选中 UI 反馈，不改文档）
-    locate_and_blink: { hosts: ['Word', 'Excel'], destructive: false, impl: locateAndBlink },
+    // 定位 + 选中（零副作用：只做选中/取消选中 UI 反馈，不改文档；blinks>0 才闪烁）
+    locate_select: { hosts: ['Word', 'Excel'], destructive: false, impl: locateSelect },
   };
   // 注入 preview（机制级 re-read：覆盖类操作先读当前状态，AI 确认后带 confirm:true 才执行）
   for (const [name, meta] of Object.entries(ACTIONS_TABLE)) {
@@ -1179,8 +1218,9 @@
             return withAfterState(r);
           });
         }
-        // ask 模式：必须用户确认
-        return { ok: false, code: 'confirm_required', error: '覆盖类操作需确认：请向用户展示当前状态预览（result.preview），确认后带 confirm:true 重发', result: { preview: p.result, action, args } };
+        // ask 模式：必须用户确认；先选中将要修改的目标（审批可视化，失败不阻塞）
+        const preSelect = meta.selectTarget ? Promise.resolve(meta.selectTarget(host, args)).catch(() => {}) : Promise.resolve();
+        return preSelect.then(() => ({ ok: false, code: 'confirm_required', error: '覆盖类操作需确认：请向用户展示当前状态预览（result.preview），确认后带 confirm:true 重发', result: { preview: p.result, action, args, selectedTarget: true } }));
       }));
     }
     return withAfterState(run());
