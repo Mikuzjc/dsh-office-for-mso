@@ -940,6 +940,130 @@
     return okResult(base);
   }
 
+  // ================= 定位 + 闪烁（locate_and_blink）=================
+  // 零副作用：仅"选中/取消选中"的 UI 反馈，不修改文档内容/样式/撤销栈。
+  // 定位器（三选一）：
+  //   bookmark | anchor —— Word 书签 / Excel 命名区域名
+  //   text               —— Word 正文首个匹配；Excel 已用区域首个包含该文本的单元格
+  //   range | address    —— Excel 区域地址（A1:B5 或 Sheet!A1:B5）
+  // 可选：sheet（Excel 工作表）、blinks（闪烁次数，默认 3，1-5）、interval（间隔 ms，默认 300，100-800）
+  function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+  async function locateAndBlink(host, args) {
+    const blinks = Math.max(1, Math.min(5, Number(args.blinks) || 3));
+    const interval = Math.max(100, Math.min(800, Number(args.interval) || 300));
+    const bookmark = (args.bookmark !== undefined ? String(args.bookmark) : args.anchor !== undefined ? String(args.anchor) : null);
+    const text = args.text !== undefined ? String(args.text) : null;
+    const address = (args.range !== undefined ? String(args.range) : args.address !== undefined ? String(args.address) : null);
+    if (!bookmark && !text && !address) return errResult('bad_args', 'locate_and_blink requires one of: bookmark/anchor, text, range/address');
+
+    if (host === 'Word') {
+      try {
+        let anySelected = false;
+        for (let i = 0; i < blinks; i++) {
+          if (bookmark) {
+            // 主路径：goToByIdAsync 滚动并选中书签内容（getBookmark 在部分宿主不可用，仅作增强）
+            const navigated = await new Promise((resolve) => {
+              Office.context.document.goToByIdAsync(bookmark, Office.GoToType.Bookmark, (res) => resolve(res.status === Office.AsyncResultStatus.Succeeded));
+            });
+            let precise = false;
+            try {
+              await Word.run(async (ctx) => {
+                const bm = ctx.document.getBookmark(bookmark);
+                bm.load('name');
+                await ctx.sync();
+                bm.getRange().select();
+                await ctx.sync();
+              });
+              precise = true;
+            } catch (e) { /* getBookmark 不可用，goToByIdAsync 已选中 */ }
+            if (!navigated && !precise) throw new Error(`locate_and_blink: bookmark not found: ${bookmark}`);
+            if (navigated || precise) anySelected = true;
+          } else {
+            await Word.run(async (ctx) => {
+              const results = ctx.document.body.search(text, { matchCase: false, ignoreSpace: true });
+              results.load('length');
+              await ctx.sync();
+              if (!results.items || results.items.length === 0) throw new Error(`locate_and_blink: text not found: ${text}`);
+              results.items[0].select();
+              await ctx.sync();
+            });
+            anySelected = true;
+          }
+          await sleep(interval);
+          await Word.run(async (ctx) => {
+            // 取消整块高亮：折叠为零宽选区（留在原位）。枚举可能不可用，用字面量 + 降级链。
+            const sel = ctx.document.getSelection();
+            try { sel.collapse('start'); }
+            catch (e) {
+              try { sel.getRange('start').select(); }
+              catch (e2) { /* 保持选中 */ }
+            }
+            await ctx.sync();
+          });
+          await sleep(interval);
+        }
+        return okResult({ host: 'Word', located: bookmark || text, blinks, selected: anySelected });
+      } catch (e) { return errResult('execution', String(e && e.message || e)); }
+    }
+
+    if (host === 'Excel') {
+      try {
+        const sheetName = args.sheet !== undefined ? String(args.sheet) : null;
+        // 先解析目标地址（一次），避免每轮重复扫描
+        let targetAddress = null;
+        if (bookmark) {
+          await Excel.run(async (ctx) => {
+            const nm = ctx.workbook.names.getItem(bookmark);
+            const r = nm.getRange();
+            r.load('address');
+            await ctx.sync();
+            targetAddress = r.address;
+          });
+        } else if (address) {
+          targetAddress = address;
+        } else {
+          await Excel.run(async (ctx) => {
+            const ws = sheetName ? ctx.workbook.worksheets.getItem(sheetName) : ctx.workbook.worksheets.getActiveWorksheet();
+            const used = ws.getUsedRange(true);
+            used.load('text, rowCount, columnCount');
+            await ctx.sync();
+            let fr = -1, fc = -1;
+            for (let r = 0; r < used.rowCount && fr < 0; r++) {
+              for (let c = 0; c < used.columnCount && fr < 0; c++) {
+                if (String((used.text[r] && used.text[r][c]) || '').indexOf(text) >= 0) { fr = r; fc = c; }
+              }
+            }
+            if (fr < 0) throw new Error(`locate_and_blink: text not found: ${text}`);
+            const cell = used.getCell(fr, fc);
+            cell.load('address');
+            await ctx.sync();
+            targetAddress = cell.address;
+          });
+        }
+        if (!targetAddress) throw new Error('locate_and_blink: could not resolve target');
+        const [sheetPart, addrPart] = targetAddress.indexOf('!') >= 0 ? targetAddress.split('!') : [sheetName, targetAddress];
+        for (let i = 0; i < blinks; i++) {
+          await Excel.run(async (ctx) => {
+            const ws = sheetPart ? ctx.workbook.worksheets.getItem(sheetPart) : ctx.workbook.worksheets.getActiveWorksheet();
+            ws.getRange(addrPart).select(); // 整块选中（绿色边框）
+            await ctx.sync();
+          });
+          await sleep(interval);
+          await Excel.run(async (ctx) => {
+            const ws = sheetPart ? ctx.workbook.worksheets.getItem(sheetPart) : ctx.workbook.worksheets.getActiveWorksheet();
+            ws.getRange(addrPart.split(':')[0]).select(); // 选回首格：取消整块高亮、留在原位
+            await ctx.sync();
+          });
+          await sleep(interval);
+        }
+        return okResult({ host: 'Excel', located: bookmark || text || targetAddress, blinks });
+      } catch (e) { return errResult('execution', String(e && e.message || e)); }
+    }
+
+    return errResult('unsupported_host', 'locate_and_blink not supported in PowerPoint');
+  }
+
   // ================= 注册表 =================
 
   // 机制级 re-read：覆盖类操作（destructive）必须先预览当前状态，确认后带 confirm:true 才执行。
@@ -999,6 +1123,8 @@
     ppt_read_notes: { hosts: ['PowerPoint'], destructive: false, impl: readPptNotes },
     // 环境诊断
     get_environment: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: getEnvironment },
+    // 定位 + 闪烁（零副作用：只做选中/取消选中 UI 反馈，不改文档）
+    locate_and_blink: { hosts: ['Word', 'Excel'], destructive: false, impl: locateAndBlink },
   };
   // 注入 preview（机制级 re-read：覆盖类操作先读当前状态，AI 确认后带 confirm:true 才执行）
   for (const [name, meta] of Object.entries(ACTIONS_TABLE)) {

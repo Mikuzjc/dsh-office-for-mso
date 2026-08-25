@@ -63,6 +63,8 @@ const CAPABILITIES = [
   { name: 'ppt_read_notes', hosts: ['PowerPoint'], destructive: false, args: {} },
   // 环境诊断
   { name: 'get_environment', hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, args: {} },
+  // 定位 + 闪烁（零副作用：只做选中/取消选中 UI 反馈，不改文档内容/样式）
+  { name: 'locate_and_blink', hosts: ['Word', 'Excel'], destructive: false, args: { bookmark: 'string 可选：Word 书签 / Excel 命名区域名', anchor: 'string 可选：同 bookmark', text: 'string 可选：定位首个匹配文本', range: 'string 可选(Excel)：A1:B5 或 Sheet!A1:B5', address: 'string 可选(Excel)：同 range', sheet: 'string 可选(Excel)：指定工作表', blinks: 'number 可选：闪烁次数(默认3,1-5)', interval: 'number 可选：间隔ms(默认300,100-800)' } },
 ];
 
 // ---- 指令队列（一次只处理一条，先到先得）----
