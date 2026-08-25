@@ -158,12 +158,24 @@ function loadActionsScript() {
   });
 }
 
+// 用户定制 action 文件（user-actions.js，gitignore）：每次热更新一并重载，定制优先于内置
+function loadUserActionsScript() {
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = '/user-actions.js?ts=' + Date.now();
+    s.onload = () => resolve();
+    s.onerror = () => resolve(); // 无定制文件时忽略（server 兜底返回空对象则不会 error）
+    document.head.appendChild(s);
+  });
+}
+
 async function ensureActions() {
   try {
     const r = await api('/office/actions-version');
     if (r && r.version) {
       if (r.version === loadedActionsVersion) return;
       await loadActionsScript();
+      await loadUserActionsScript(); // 用户定制（可在 actions.js 之后覆盖/新增）
       // 验证新脚本确实执行：版本标记匹配 + __EXECUTE__ 已定义（防"加载成功但 IIFE 抛错/旧值残留"）
       if (window.__ACTIONS_VERSION__ === r.version && typeof window.__EXECUTE__ === 'function') {
         loadedActionsVersion = r.version;

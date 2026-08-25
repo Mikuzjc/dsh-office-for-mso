@@ -149,6 +149,14 @@ const server = http.createServer(async (req, res) => {
   // ---- 静态文件（office-addin 目录内任意文件；API 路径 /office/* 已单独处理）----
   if (req.method === 'GET' && !p.startsWith('/office/')) {
     const file = p === '/' ? 'taskpane.html' : p.slice(1);
+    // user-actions.js：用户定制文件（gitignore）；不存在时返回空对象，保证窗格总能加载（须在 existsSync 判断前处理）
+    if (file === 'user-actions.js') {
+      const ua = path.join(ROOT, 'user-actions.js');
+      const body = fs.existsSync(ua) ? fs.readFileSync(ua, 'utf8') : 'window.__USER_ACTIONS__ = {};\n';
+      res.writeHead(200, { 'Content-Type': MIME['.js'], 'Cache-Control': 'no-store' });
+      res.end(body);
+      return;
+    }
     const full = path.join(ROOT, file);
     if ((full.startsWith(ROOT + path.sep) || full === ROOT) && fs.existsSync(full) && fs.statSync(full).isFile()) {
       const ext = path.extname(full).toLowerCase();

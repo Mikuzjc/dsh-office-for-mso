@@ -1177,7 +1177,9 @@
   // confirmMode: auto（默认）= 覆盖操作自动 re-read 后执行，结果附 previousState 供 AI 核验，不打扰用户；
   //              ask = re-read 后必须用户确认（confirm:true）才执行。
   window.__EXECUTE__ = function (action, args) {
-    const meta = ACTIONS_TABLE[action];
+    // 用户定制优先（user-actions.js 可同名覆盖内置 action 或新增）
+    const userActions = window.__USER_ACTIONS__ || {};
+    const meta = userActions[action] || ACTIONS_TABLE[action];
     if (!meta) return errResult('unknown_action', `unknown action: ${action}`);
     const host = String(Office.context.host || '');
     if (!meta.hosts.includes(host)) return errResult('unsupported_host', `${action} not supported in ${host}`);

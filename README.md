@@ -201,7 +201,21 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 
 **自检**：`powershell -ExecutionPolicy Bypass -File smoke-test.ps1`（检查服务/端点/在线文档）。
 
-## 六·五、更新（已安装用户）
+## 六·五、用户定制（user-actions.js，更新不冲突）
+
+按需定制/覆盖 action（如加自己的函数、改内置行为），**与上游更新隔离**：
+
+1. 项目根目录创建 `user-actions.js`（已在 .gitignore，`update.ps1` 拉取不会碰它）：
+   ```js
+   window.__USER_ACTIONS__ = {
+     my_action: { hosts: ['Word'], destructive: false, impl: (host, args) => ({ ok: true, result: { text: String(args.text || '') } }) },
+     // 同名覆盖内置：write_selection: { hosts: ['Word'], destructive: true, impl: myVersion }
+   };
+   ```
+2. 重启桥接服务 → 定制 action **热更新生效**（无需重开窗格）
+3. 定制 action 与内置一样支持审批/写后验证（定义了 `destructive`/`preview` 时）
+
+## 六·六、更新（已安装用户）
 
 拉取最新版并生效（一条命令）：
 
