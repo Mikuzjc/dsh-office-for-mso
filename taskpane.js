@@ -257,9 +257,33 @@ function renderApproval() {
   if (after) after.textContent = afterContent(approvalPending.cmd.action, approvalPending.cmd.args || {});
 }
 
+// 审批中定位：插入类操作（insert_paragraph / append_text）审批时先把光标移到插入点，
+// 让用户看到将插入的位置上下文（Word 文末 = 选中最后一段；afterSelection 保持选区不动）
+async function locateInsertionPoint(cmd) {
+  if (hostName() !== 'Word') return;
+  const a = cmd.action;
+  const args = cmd.args || {};
+  try {
+    if (a === 'insert_paragraph' && args.location === 'afterSelection') return; // 保持当前选区
+    if (a === 'insert_paragraph' || a === 'append_text') {
+      await Word.run(async (ctx) => {
+        const paras = ctx.document.body.paragraphs;
+        paras.load('items');
+        await ctx.sync();
+        const items = paras.items;
+        if (items && items.length) {
+          items[items.length - 1].getRange().select();
+          await ctx.sync();
+        }
+      });
+    }
+  } catch (e) { /* 定位失败不影响审批 */ }
+}
+
 async function showApproval(cmd) {
   approvalActive = true;
   const meta = (window.__ACTIONS__ || {})[cmd.action] || {};
+  await locateInsertionPoint(cmd); // 审批中：先把光标移到将操作的位置
   const previewP = (meta.preview
     ? Promise.resolve(meta.preview(hostName(), cmd.args || {}))
     : Promise.resolve(okResult(null))
