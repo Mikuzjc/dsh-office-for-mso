@@ -15,7 +15,7 @@
 
 - **不冲突**：加载项跑在 Office 进程内，操作内存文档，与你的编辑由 Office 统一串行处理（无文件锁、无"最后保存者赢"）
 - **无侧边栏交互**：窗格只是状态显示，所有指令从 DSH 下发
-- **热更新**：所有 action 实现在 `actions.js`，改它 → 重启桥接服务 → 窗格自动重载，**无需重开窗格**
+- **🔥 热更新（卖点）**：所有 action 实现在 `actions.js`，改它 → 重启桥接服务 → 窗格**自动热更新**，**无需重开窗格**——按你的使用需求随时定制 action，DSH 自动生效；也支持按用户反馈快速迭代（本项目的 re-read/审批/标点规范等改进都是这样热更新上去的）
 
 ---
 
@@ -200,6 +200,21 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 **开发时**：`powershell -ExecutionPolicy Bypass -File start.ps1` 前台运行；`npm start` 亦可。
 
 **自检**：`powershell -ExecutionPolicy Bypass -File smoke-test.ps1`（检查服务/端点/在线文档）。
+
+## 六·五、更新（已安装用户）
+
+拉取最新版并生效（一条命令）：
+
+```powershell
+cd <你的项目目录>
+powershell -ExecutionPolicy Bypass -File update.ps1   # git pull + 自动重启服务
+```
+
+- **actions.js 改动**：重启服务后窗格**自动热更新**，无需重开窗格（最快迭代路径）
+- **外壳（taskpane.js/html）改动**：需重开一次窗格
+- **server.js / install.ps1 改动**：update.ps1 已自动重启服务；计划任务定义变了需重跑 `install.ps1`
+
+> 没有自动推送机制：已安装用户执行一次 `update.ps1` 即收到全部更新（当前无其他安装者，随仓库演进）。
 
 ## 七、排查
 

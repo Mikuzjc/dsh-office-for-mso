@@ -15,7 +15,7 @@ You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service loca
 
 - **No conflicts**: the add-in runs inside the Office process and operates on the in-memory document; Office serializes it with your own editing (no file locks, no "last-save-wins")
 - **No taskpane interaction needed**: the pane is just a status display; all commands come from DSH
-- **Hot-reload**: all action implementations live in `actions.js`; edit it → restart the bridge → panes reload automatically, **no need to reopen panes**
+- **🔥 Hot-reload (selling point)**: all action implementations live in `actions.js`; edit it → restart the bridge → panes **hot-reload automatically**, **no pane reopen needed** — customize actions to your needs and DSH picks them up instantly (re-read/approval/punctuation rules in this project were all shipped this way)
 
 ---
 
@@ -197,6 +197,21 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 **During development**: `powershell -ExecutionPolicy Bypass -File start.ps1` (foreground); or `npm start`.
 
 **Self-check**: `powershell -ExecutionPolicy Bypass -File smoke-test.ps1` (checks service/endpoints/online documents).
+
+## 6.5 Updating (installed users)
+
+Pull the latest version and apply it (one command):
+
+```powershell
+cd <your-project-dir>
+powershell -ExecutionPolicy Bypass -File update.ps1   # git pull + auto-restart service
+```
+
+- **actions.js changes**: panes **hot-reload** after the service restart — no pane reopen needed
+- **Shell (taskpane.js/html) changes**: reopen the pane once
+- **server.js / install.ps1 changes**: update.ps1 restarts the service; if the Scheduled Task definition changed, rerun `install.ps1`
+
+> No auto-push mechanism: an installed user runs `update.ps1` once to receive all updates (currently no other installers; evolves with the repo).
 
 ## 7. Troubleshooting
 
