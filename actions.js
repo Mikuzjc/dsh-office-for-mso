@@ -1120,6 +1120,8 @@
     apply_filter: (host, args) => readRange(host, { address: args.address }),
     set_font: (host, args) => okResult({ host, wouldSetFont: args.font, note: '影响全文所有段落（含表格内文字），属覆盖类操作' }),
     apply_style: (host, args) => readSelection(host, {}),
+    insert_paragraph: (host, args) => readSelection(host, {}),
+    append_text: (host, args) => readSelection(host, {}),
   };
 
   // 注册表（外壳 execute 按 meta.destructive + meta.preview 做机制级 re-read 确认）
@@ -1130,12 +1132,12 @@
     read_document: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: readDocument },
     read_styles: { hosts: ['Word', 'Excel'], destructive: false, impl: readStyles },
     replace_all: { hosts: ['Word', 'Excel'], destructive: true, impl: replaceAll, selectTarget: selectReplaceFirst },
-    append_text: { hosts: ['Word'], destructive: false, impl: appendText },
+    append_text: { hosts: ['Word'], destructive: true, impl: appendText },
     // Word
     read_tables: { hosts: ['Word'], destructive: false, impl: readTables },
     set_font: { hosts: ['Word'], destructive: true, impl: setFont },
     remove_empty_paragraphs: { hosts: ['Word'], destructive: true, impl: removeEmptyParagraphs },
-    insert_paragraph: { hosts: ['Word'], destructive: false, impl: insertParagraph },
+    insert_paragraph: { hosts: ['Word'], destructive: true, impl: insertParagraph },
     insert_table: { hosts: ['Word'], destructive: false, impl: insertTable },
     insert_image: { hosts: ['Word'], destructive: false, impl: insertImage },
     apply_style: { hosts: ['Word'], destructive: true, impl: applyStyle },
