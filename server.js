@@ -31,12 +31,12 @@ const CAPABILITIES = [
   { name: 'read_document', hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, args: { sheet: 'string 可选(Excel)：指定工作表名' } },
   { name: 'read_styles', hosts: ['Word', 'Excel'], destructive: false, args: {} },
   { name: 'replace_all', hosts: ['Word', 'Excel'], destructive: true, args: { search: 'string 必填', replace: 'string 必填', dryRun: 'boolean 可选：仅返回命中数不执行' } },
-  { name: 'append_text', hosts: ['Word'], destructive: false, args: { text: 'string 必填：文末追加段落' } },
+  { name: 'append_text', hosts: ['Word'], destructive: true, args: { text: 'string 必填：文末追加段落' } },
   // Word 组
   { name: 'read_tables', hosts: ['Word'], destructive: false, args: {} },
   { name: 'set_font', hosts: ['Word'], destructive: true, args: { font: 'string 必填：字体名' } },
   { name: 'remove_empty_paragraphs', hosts: ['Word'], destructive: true, args: { dryRun: 'boolean 可选' } },
-  { name: 'insert_paragraph', hosts: ['Word'], destructive: false, args: { text: 'string 必填', style: 'string 可选：内置样式如 Heading1', location: 'string 可选：end|start|afterSelection' } },
+  { name: 'insert_paragraph', hosts: ['Word'], destructive: true, args: { text: 'string 必填', style: 'string 可选：内置样式如 Heading1', location: 'string 可选：end|start|afterSelection' } },
   { name: 'insert_table', hosts: ['Word'], destructive: false, args: { rows: 'array 必填：二维数组', location: 'string 可选' } },
   { name: 'insert_image', hosts: ['Word'], destructive: false, args: { base64: 'string 必填：PNG/JPEG base64', width: 'number 可选(px)', height: 'number 可选(px)' } },
   { name: 'apply_style', hosts: ['Word'], destructive: true, args: { style: 'string 必填：Heading1/标题 1/正文等', scope: 'string 可选：selection|all' } },
@@ -68,8 +68,9 @@ const CAPABILITIES = [
 ];
 
 // ---- 指令队列（一次只处理一条，先到先得）----
-let pending = null;        // { commandId, action, args, host, resolve, timer }  host: null = 任意文档可取
-const heartbeats = {};     // host -> 最近心跳时间戳（用于感知哪些文档在线）
+let pending = null;        // { commandId, action, args, host, instance, resolve, timer }  host/instance: null = 任意
+const heartbeats = {};     // host -> 最近心跳时间戳（兼容旧版：按 host 摘要）
+const instances = {};      // instanceId -> { host, docUrl, lastBeat }（多文档精确路由：每文档窗格唯一实例，docUrl 识别文档）
 const hellos = {};         // host -> { ts, version } 窗格启动上报（诊断自动刷新是否生效）
 
 const MIME = {
@@ -193,32 +194,42 @@ const server = http.createServer(async (req, res) => {
     if (!body.action || typeof body.action !== 'string') { sendJson(res, 400, { ok: false, error: 'action required' }); return; }
     const host = body.host && typeof body.host === 'string' ? body.host : null;
     if (host && !VALID_HOSTS.includes(host)) { sendJson(res, 400, { ok: false, error: `invalid host: ${host} (valid: ${VALID_HOSTS.join('/')})` }); return; }
+    const instance = body.instance && typeof body.instance === 'string' ? body.instance : null; // 可选：指定加载项实例（多文档精确路由）
     if (pending) { sendJson(res, 409, { ok: false, error: 'a command is already pending' }); return; }
-    // 快速失败：目标 host 窗格不在线时立即返回明确错误（而不是傻等 90s 超时），AI 层据此提醒用户正确用法
+    // 快速失败：目标 host/instance 窗格不在线时立即返回明确错误（而不是傻等 90s 超时）
     const now = Date.now();
     const OFFLINE_MS = 15000; // 心跳每 5s 一次，15s 无心跳视为窗格离线
+    if (instance && !instances[instance]) {
+      sendJson(res, 200, { ok: false, code: 'addin_offline', error: `指定的加载项实例不存在（instanceId=${instance}）：请确认目标文档的窗格已开启，或重新查 /office/status 获取当前实例` });
+      return;
+    }
+    if (instance && now - instances[instance].lastBeat > OFFLINE_MS) {
+      sendJson(res, 200, { ok: false, code: 'addin_offline', error: '指定的加载项实例已离线（窗格关闭）：请重新打开该文档的窗格' });
+      return;
+    }
     if (host && (!heartbeats[host] || now - heartbeats[host] > OFFLINE_MS)) {
       sendJson(res, 200, { ok: false, code: 'addin_offline', error: `「${host}」加载项窗格未开启：请打开该文档，并在 开始/开发人员 → 加载项 → 开发人员加载项 中打开「DSH Office 执行器」窗格并保持开启，然后重试` });
       return;
     }
-    if (!host && Object.keys(heartbeats).length === 0) {
+    if (!host && !instance && Object.keys(heartbeats).length === 0) {
       sendJson(res, 200, { ok: false, code: 'addin_offline', error: '没有在线的 Office 加载项：请打开 Word/Excel/PowerPoint 文档，并在 开始/开发人员 → 加载项 → 开发人员加载项 中打开「DSH Office 执行器」窗格并保持开启，然后重试' });
       return;
     }
     const commandId = crypto.randomUUID();
     const result = await new Promise((resolve) => {
       const timer = setTimeout(() => resolve({ ok: false, error: 'timeout: no add-in heartbeat or execution', timeout: true }), COMMAND_TIMEOUT_MS);
-      pending = { commandId, action: body.action, args: body.args || {}, host, resolve: (r) => { clearTimeout(timer); resolve(r); } };
+      pending = { commandId, action: body.action, args: body.args || {}, host, instance, resolve: (r) => { clearTimeout(timer); resolve(r); } };
     });
     if (pending && pending.commandId === commandId) pending = null; // 清理（超时路径）
-    sendJson(res, 200, { ok: result.ok !== false, commandId, host: host || 'any', ...result });
+    sendJson(res, 200, { ok: result.ok !== false, commandId, host: host || 'any', instance: instance || 'any', ...result });
     return;
   }
 
-  // GET /office/poll —— 加载项取指令；?host= 精确匹配：指令指定了 host 时只有同 host 的窗格能取走
+  // GET /office/poll —— 加载项取指令；?host= + ?instance= 精确匹配（多文档时只有目标实例能取走）
   if (req.method === 'GET' && p === '/office/poll') {
     const host = url.searchParams.get('host') || '';
-    if (pending && (!pending.host || pending.host === host)) {
+    const instance = url.searchParams.get('instance') || '';
+    if (pending && (!pending.host || pending.host === host) && (!pending.instance || pending.instance === instance)) {
       sendJson(res, 200, { commandId: pending.commandId, action: pending.action, args: pending.args });
     } else {
       sendJson(res, 200, { commandId: null });
@@ -244,12 +255,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /office/heartbeat —— body.host 记录该文档在线；响应带 codeVersion 供窗格自动刷新
+  // POST /office/heartbeat —— body: { host, instanceId, docUrl }；实例注册（多文档精确路由）+ host 摘要；响应带 codeVersion
   if (req.method === 'POST' && p === '/office/heartbeat') {
     let body;
     try { body = await readBody(req); } catch { body = {}; }
     const host = body.host && typeof body.host === 'string' && VALID_HOSTS.includes(body.host) ? body.host : null;
     if (host) heartbeats[host] = Date.now();
+    if (host && body.instanceId) {
+      instances[String(body.instanceId)] = { host, docUrl: body.docUrl ? String(body.docUrl) : '', lastBeat: Date.now() };
+    }
     sendJson(res, 200, { ok: true, host, codeVersion: getCodeVersion() });
     return;
   }
@@ -264,13 +278,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // GET /office/status —— 状态：pending 指令 + 各在线文档（按 host 心跳）+ 窗格启动记录
+  // GET /office/status —— 状态：pending 指令 + 各在线文档（host 摘要）+ 实例明细（含 docUrl 识别文档）+ 窗格启动记录
   if (req.method === 'GET' && p === '/office/status') {
     const hosts = {};
     for (const h of VALID_HOSTS) if (heartbeats[h]) hosts[h] = heartbeats[h];
+    const now = Date.now();
+    const instanceList = Object.entries(instances).map(([id, v]) => ({
+      instanceId: id,
+      host: v.host,
+      docUrl: v.docUrl,
+      online: now - v.lastBeat <= 15000,
+      lastBeat: v.lastBeat,
+    }));
     sendJson(res, 200, {
-      pending: pending ? { commandId: pending.commandId, action: pending.action, host: pending.host || 'any' } : null,
+      pending: pending ? { commandId: pending.commandId, action: pending.action, host: pending.host || 'any', instance: pending.instance || 'any' } : null,
       hosts,
+      instances: instanceList,
       hellos,
       codeVersion: getCodeVersion(),
       lastHeartbeat: Object.keys(heartbeats).length ? Math.max(...Object.values(heartbeats)) : 0,

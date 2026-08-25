@@ -31,6 +31,11 @@ function hostName() {
   return String(Office.context.host || '');
 }
 
+// 实例标识（多文档精确路由）：每个窗格唯一；docUrl 识别文档（测试文件 vs 正式论文）
+const INSTANCE_ID = 'inst-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+let DOC_URL = '';
+try { DOC_URL = Office.context.document.url || ''; } catch (e) { DOC_URL = ''; }
+
 function okResult(result) { return { ok: true, result }; }
 function errResult(code, error) { return { ok: false, code, error }; }
 
@@ -336,7 +341,7 @@ async function poll() {
   try {
     await ensureActions();
     const host = hostName();
-    const cmd = await api('/office/poll?host=' + encodeURIComponent(host));
+    const cmd = await api('/office/poll?host=' + encodeURIComponent(host) + '&instance=' + encodeURIComponent(INSTANCE_ID));
     setConnected(); // 轮询成功 = 桥接已连上，恢复状态
     if (cmd && cmd.commandId) {
       const meta = (window.__ACTIONS__ || {})[cmd.action] || {};
@@ -365,7 +370,7 @@ function heartbeat() {
   api('/office/heartbeat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ host: hostName() }),
+    body: JSON.stringify({ host: hostName(), instanceId: INSTANCE_ID, docUrl: DOC_URL }),
   }).then(() => setConnected()).catch(() => { /* 忽略，下次再试 */ });
 }
 
