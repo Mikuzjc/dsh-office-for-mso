@@ -65,7 +65,7 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 - **写入后检查样式**：向 Word 写入内容（insert_paragraph / write_selection / append_text）后，用 `read_styles` / `read_document` 检查结果，样式不对时用 `format_selection` / `apply_style` 修正（用户常抱怨"写入后样式不对"）
 - **删空段落保护**：自动跳过含图片的段落与文档结尾段（曾误删流程图，已修复）
 - **环境边界**（本机实测）：Word 表格插入 / paragraphFormat / 批注 不可用（返回 `requirement`）；PPT 只能读（全文件文本 / 备注），不能新建幻灯片 / 改排版；Excel 基本全功能。换机器 / 更新 Office 可能不同——收到 `requirement`/`unsupported` 时如实降级，不要硬来
-- **多文档并行**：同时开多个文档时务必带 `host` 指定目标，否则可能被任一文档执行
+- **多文档精确路由（instanceId）**：每个打开文档的窗格有唯一实例 ID，`GET /office/status` 的 `instances` 字段列出**各实例及其文档路径（docUrl）**——多 Word 文档（如测试文件 + 正式论文）同时打开时，先查 status 按 docUrl 识别目标文档，指令带 `instance` 参数精确路由，**避免指令被错误文档执行**（曾发生：测试文件激活时指令被正式论文执行）。不带 instance 时由任一匹配 host 窗格执行（兼容旧行为；多文档务必带 instance）
 - **窗格必须保持开启**：操作期间窗格关闭会立即得到 `addin_offline`，提醒用户重新打开
 
 ## 高级用法：题注与交叉引用一致性检查（学术论文常见需求）

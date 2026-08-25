@@ -19,6 +19,16 @@
 
 ---
 
+## 兼容性
+
+| 平台 | 核心（server.js + 加载项） | 自动托管（计划任务） | 自动 sideload（WEF 注册表） | 管理脚本（ps1） |
+|---|---|---|---|---|
+| **Windows** | ✅ 仅需 Node.js | ✅ `install.ps1` | ✅ server 启动自动 | ✅ 系统自带 PowerShell，直接用 |
+| **macOS** | ✅ 仅需 Node.js | ❌ 手动 `node server.js` | ❌ Office 菜单手动加载 | ⚠️ 可选：装 PowerShell Core 才能跑 ps1 脚本；不装不影响核心使用 |
+| **Linux** | ⚠️ 无 Office 桌面版加载项宿主（服务器/CI 场景不适用） | — | — | — |
+
+> **核心只依赖 Node.js**；PowerShell 是管理便利工具（非运行依赖），Windows 零额外安装，macOS 可选。
+
 ## 一、部署（一次性）
 
 ### 0. 前置条件
