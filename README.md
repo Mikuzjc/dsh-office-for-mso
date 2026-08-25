@@ -8,7 +8,7 @@
 你 ──DSH 会话发指令──▶ AI(agent) ──POST──▶ 桥接服务 localhost:3000
                                                 │ 指令入队（按 host 路由）
                            Office 加载项（文档内后台轮询，1s）
-                                                │ Office.js 执行（33 个 action）
+                                                │ Office.js 执行（34 个 action）
                                                 ▼
                             结果回传 ──▶ AI 取回 ──▶ 汇报给你
 ```
@@ -104,9 +104,10 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 
 **热更新机制**：窗格每次轮询前 GET `/office/actions-version`，比对 actions.js 的 mtime，变化则动态重载脚本。**改 actions.js → 重启 server → 自动生效**。
 
-## 三、能力矩阵（33 个 action）
+## 三、能力矩阵（34 个 action）
 
 > `destructive=true` 的操作支持 `args.dryRun` 预览影响（replace_all / remove_empty_paragraphs / delete_sheet 已实现；其余 AI 层先读后写）。W=Word，E=Excel，P=PowerPoint。
+> **改完自动选中**（零副作用，仅选中反馈、不改内容/样式）：写入动作执行后自动选中改动处 —— `replace_all` 选最后一处 / `append_text`、`insert_paragraph` 选插入内容 / `write_range` 选写入区域 / `write_selection` 由宿主保持选中；多处替换只能选中一处（Office.js 单选区）。
 
 ### 通用
 | action | 平台 | 说明 |
@@ -117,6 +118,7 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 | `read_styles` | W/E | 选区样式：Word（字体/字号/加粗/斜体/颜色/下划线/高亮）；Excel（逐格，上限 10×10） |
 | `replace_all` | W/E | 全文查找替换 `{search, replace, dryRun?}` |
 | `append_text` | W | 文末追加段落 `{text}` |
+| `locate_select` | W/E | 定位并选中（零副作用，不改内容/样式）：`{text}` 首个匹配 / `{bookmark\|anchor}` / Excel `{range\|address}`（可带 `sheet`）；`blinks>0` 才闪烁，默认只选中保持 |
 
 ### Word 组
 | action | 说明 |

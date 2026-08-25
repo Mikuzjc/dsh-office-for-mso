@@ -8,7 +8,7 @@
 You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service localhost:3000
                                               │ Command queue (host-routed)
                          Office add-in (background polling, 1s)
-                                              │ Office.js execution (33 actions)
+                                              │ Office.js execution (34 actions)
                                               ▼
                         Result returned ──▶ AI reads ──▶ Report to you
 ```
@@ -103,9 +103,10 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 
 **Hot-reload mechanism**: before each poll, the pane GETs `/office/actions-version` and compares against the mtime of `actions.js`; on change it dynamically reloads the script. **Edit `actions.js` → restart server → takes effect automatically**.
 
-## 3. Capability matrix (33 actions)
+## 3. Capability matrix (34 actions)
 
 > Operations with `destructive=true` support `args.dryRun` to preview the impact (implemented for replace_all / remove_empty_paragraphs / delete_sheet; others follow a read-then-write convention at the AI layer). W=Word, E=Excel, P=PowerPoint.
+> **Auto-select after writes** (zero side effects, selection only): write actions select the changed content on success — `replace_all` selects the last change / `append_text`, `insert_paragraph` select the inserted content / `write_range` selects the written range / `write_selection` keeps selection via the host; multiple disjoint changes can only select one range (Office.js single-selection limit).
 
 ### Common
 | action | Platforms | Description |
@@ -116,6 +117,7 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 | `read_styles` | W/E | Selection styles: Word (font/size/bold/italic/color/underline/highlight); Excel (per cell, max 10×10) |
 | `replace_all` | W/E | Find & replace across document `{search, replace, dryRun?}` |
 | `append_text` | W | Append paragraph at end `{text}` |
+| `locate_select` | W/E | Locate and select (zero side effects, no content/style changes): `{text}` first match / `{bookmark\|anchor}` / Excel `{range\|address}` (optional `sheet`); `blinks>0` to blink, default selects and holds |
 
 ### Word group
 | action | Description |
