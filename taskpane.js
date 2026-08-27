@@ -235,7 +235,11 @@ function afterContent(action, args) {
   const a = args || {};
   switch (action) {
     case 'write_selection': return a.text !== undefined ? a.text : '(未提供)';
-    case 'replace_all': return `将 "${a.search}" 全部替换为 "${a.replace}"`;
+    case 'replace_all': {
+      // "修改后"只显示替换结果：直接写新内容；replace 为空（删除匹配）时写【删去选中】
+      const rep = a.replace !== undefined && a.replace !== null ? String(a.replace) : '';
+      return rep === '' ? '【删去选中】' : rep;
+    }
     case 'insert_paragraph': return a.text !== undefined ? a.text : '(未提供)';
     case 'append_text': return a.text !== undefined ? a.text : '(未提供)';
     case 'insert_table': return JSON.stringify(a.rows || []);
