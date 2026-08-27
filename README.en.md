@@ -99,7 +99,7 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 | `pako.min.js` | Local zip decompression library (for PPT OOXML reading, offline) |
 | `manifest.xml` | Add-in manifest (permission ReadWriteDocument, the maximum) |
 
-**Multi-document model**: Word / Excel / PowerPoint each run their own add-in instance; commands carry a `host` (Word/Excel/PowerPoint) for precise routing; `GET /office/status` returns the online document list (`hosts` field) and pane startup records (`hellos`).
+**Multi-document model**: Word / Excel / PowerPoint each run their own add-in instance; commands carry a `host` (Word/Excel/PowerPoint) for precise routing; `GET /office/status` returns the online document list (`hosts` field), **per-instance details (`instances` field: instanceId / host / docUrl document path / docTitle document name — used to identify the target document; fall back to docTitle when docUrl is empty)** and pane startup records (`hellos`).
 
 **Hot-reload mechanism**: before each poll, the pane GETs `/office/actions-version` and compares against the mtime of `actions.js`; on change it dynamically reloads the script. **Edit `actions.js` → restart server → takes effect automatically**.
 

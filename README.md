@@ -110,7 +110,7 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 | `manifest.xml` | 加载项清单（权限 ReadWriteDocument，已到顶） |
 | `skills/office-bridge/SKILL.md` | DSH 技能包：教 AI 使用桥接的完整指令（查状态→发指令→错误处理→安全约定） |
 
-**多文档模型**：Word / Excel / PowerPoint 各自运行一个加载项实例；指令带 `host`（Word/Excel/PowerPoint）精确路由，`GET /office/status` 返回在线文档列表（`hosts` 字段）与窗格启动记录（`hellos`）。
+**多文档模型**：Word / Excel / PowerPoint 各自运行一个加载项实例；指令带 `host`（Word/Excel/PowerPoint）精确路由，`GET /office/status` 返回在线文档列表（`hosts` 字段）、**实例明细（`instances` 字段：instanceId / host / docUrl 文档路径 / docTitle 文档名，用于识别目标文档，docUrl 为空时用 docTitle）**与窗格启动记录（`hellos`）。
 
 **热更新机制**：窗格每次轮询前 GET `/office/actions-version`，比对 actions.js 的 mtime，变化则动态重载脚本。**改 actions.js → 重启 server → 自动生效**。
 

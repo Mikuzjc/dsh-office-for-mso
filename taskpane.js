@@ -32,9 +32,12 @@ function hostName() {
 }
 
 // 实例标识（多文档精确路由）：每个窗格唯一；docUrl 识别文档（测试文件 vs 正式论文）
+// 注意：docUrl（Office.context.document.url）对"未保存的新文档"返回空 → 心跳同时上报 docTitle（document.title）作 fallback
 const INSTANCE_ID = 'inst-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
 let DOC_URL = '';
+let DOC_TITLE = '';
 try { DOC_URL = Office.context.document.url || ''; } catch (e) { DOC_URL = ''; }
+try { DOC_TITLE = Office.context.document.title || ''; } catch (e) { DOC_TITLE = ''; }
 
 function okResult(result) { return { ok: true, result }; }
 function errResult(code, error) { return { ok: false, code, error }; }
@@ -359,7 +362,7 @@ function heartbeat() {
   api('/office/heartbeat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ host: hostName(), instanceId: INSTANCE_ID, docUrl: DOC_URL }),
+    body: JSON.stringify({ host: hostName(), instanceId: INSTANCE_ID, docUrl: DOC_URL, docTitle: DOC_TITLE }),
   }).then(() => setConnected()).catch(() => { /* 忽略，下次再试 */ });
 }
 

@@ -99,7 +99,7 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 | `pako.min.js` | ローカル zip 解凍ライブラリ（PPT OOXML 読み取り用、オフライン可） |
 | `manifest.xml` | アドインマニフェスト（権限 ReadWriteDocument、最高レベル） |
 
-**マルチドキュメントモデル**：Word / Excel / PowerPoint はそれぞれ独立したアドインインスタンスを実行。コマンドは `host`（Word/Excel/PowerPoint）で正確にルーティングされ、`GET /office/status` がオンラインドキュメント一覧（`hosts` フィールド）とペイン起動記録（`hellos`）を返します。
+**マルチドキュメントモデル**：Word / Excel / PowerPoint はそれぞれ独立したアドインインスタンスを実行。コマンドは `host`（Word/Excel/PowerPoint）で正確にルーティングされ、`GET /office/status` がオンラインドキュメント一覧（`hosts` フィールド）、**インスタンス詳細（`instances` フィールド：instanceId / host / docUrl ドキュメントパス / docTitle ドキュメント名——対象ドキュメントの識別に使用、docUrl が空の場合は docTitle にフォールバック）**、ペイン起動記録（`hellos`）を返します。
 
 **ホットリロードの仕組み**：ペインはポーリングのたびに `/office/actions-version` を GET し、`actions.js` の mtime と比較。変更があればスクリプトを動的に再読み込みします。**`actions.js` を編集 → サーバー再起動 → 自動反映**。
 

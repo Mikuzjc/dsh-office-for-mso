@@ -286,14 +286,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /office/heartbeat —— body: { host, instanceId, docUrl }；实例注册（多文档精确路由）+ host 摘要；响应带 codeVersion
+  // POST /office/heartbeat —— body: { host, instanceId, docUrl, docTitle }；实例注册（多文档精确路由）+ host 摘要；响应带 codeVersion
   if (req.method === 'POST' && p === '/office/heartbeat') {
     let body;
     try { body = await readBody(req); } catch { body = {}; }
     const host = body.host && typeof body.host === 'string' && VALID_HOSTS.includes(body.host) ? body.host : null;
     if (host) heartbeats[host] = Date.now();
     if (host && body.instanceId) {
-      instances[String(body.instanceId)] = { host, docUrl: body.docUrl ? String(body.docUrl) : '', lastBeat: Date.now() };
+      instances[String(body.instanceId)] = { host, docUrl: body.docUrl ? String(body.docUrl) : '', docTitle: body.docTitle ? String(body.docTitle) : '', lastBeat: Date.now() };
     }
     sendJson(res, 200, { ok: true, host, codeVersion: getCodeVersion() });
     return;
@@ -318,6 +318,7 @@ const server = http.createServer(async (req, res) => {
       instanceId: id,
       host: v.host,
       docUrl: v.docUrl,
+      docTitle: v.docTitle,
       online: now - v.lastBeat <= 15000,
       lastBeat: v.lastBeat,
     }));
