@@ -20,7 +20,8 @@ const ROOT = __dirname;
 const COMMAND_TIMEOUT_MS = Number(process.env.COMMAND_TIMEOUT_MS || 90000);
 const VALID_HOSTS = ['Word', 'Excel', 'PowerPoint'];
 // 覆盖类操作确认模式：auto=自动 re-read 后执行（结果附 previousState，不打扰用户）；ask=窗格显示审批面板，用户点确认才执行
-let CONFIRM_MODE = process.env.OFFICE_CONFIRM_MODE || 'auto';
+// 默认 ask（审批模式）：所有覆盖类操作都经用户确认，最安全；可用环境变量 OFFICE_CONFIRM_MODE 覆盖
+let CONFIRM_MODE = process.env.OFFICE_CONFIRM_MODE || 'ask';
 
 // ---- 能力注册表（与 taskpane.js 的 ACTIONS 保持一致；供 AI 层 /office/capabilities 发现能力）----
 // 一期全集：现有 10 个 + 新增（Word 组 / Excel 组 / PPT 组）。destructive=true 的操作须先 dryRun 预览。
@@ -63,6 +64,9 @@ const CAPABILITIES = [
   { name: 'ppt_read_notes', hosts: ['PowerPoint'], destructive: false, args: {} },
   // 环境诊断
   { name: 'get_environment', hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, args: {} },
+  // Common API（Office.context.document，一直可用）
+  { name: 'get_document_info', hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, args: { keys: 'array 可选：要读取的 settings 键列表（如 ["lang","theme"]）' } },
+  { name: 'set_setting', hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, args: { key: 'string 必填：设置键', value: 'any 必填：任意 JSON 值（随文档持久化，跨会话可读）' } },
   // 定位 + 选中（零副作用：只做选中/取消选中 UI 反馈，不改文档内容/样式）
   { name: 'locate_select', hosts: ['Word', 'Excel'], destructive: false, args: { bookmark: 'string 可选：Word 书签 / Excel 命名区域名', anchor: 'string 可选：同 bookmark', text: 'string 可选：定位首个匹配文本', range: 'string 可选(Excel)：A1:B5 或 Sheet!A1:B5', address: 'string 可选(Excel)：同 range', sheet: 'string 可选(Excel)：指定工作表', blinks: 'number 可选：闪烁次数(默认0=只选中保持,1-5才闪)', interval: 'number 可选：间隔ms(默认300,100-800)' } },
 ];
@@ -81,6 +85,7 @@ const ERROR_CODES = [
   { code: 'confirm_required', layer: 'addin', meaning: 'ask 模式下覆盖类操作需用户审批', aiAction: '把 result.preview 展示给用户，用户确认后带 confirm:true 重发；用户拒绝则停止', retry: true },
   { code: 'rejected', layer: 'addin', meaning: '用户在窗格拒绝了该操作（或审批超时视为拒绝）', aiAction: '停止该操作、尊重用户决定，可询问替代方案；不要重发', retry: false },
   { code: 'not_found', layer: 'addin', meaning: '定位/查找目标不存在（书签、文本、命名区域、区域地址等）', aiAction: '把「未找到」如实告知用户，不要重试同一查找；可建议换关键词或换定位方式', retry: false },
+  { code: 'readonly', layer: 'addin', meaning: '文档处于只读/查看模式，覆盖类操作被拒绝', aiAction: '告知用户文档为只读，请另存为可编辑副本或切换编辑模式后重试；不要重试', retry: false },
   { code: 'requirement', layer: 'addin', meaning: '当前 Office 环境缺少所需 API（如批注 API 不可用）', aiAction: '如实告知用户该功能在当前环境不可用，绝不假装成功', retry: false },
   { code: 'unsupported', layer: 'addin', meaning: '该参数组合在当前环境不支持（如 Excel replace_all 的 dryRun）', aiAction: '按 error 文本换用支持的调用方式', retry: true },
   { code: 'execution', layer: 'addin', meaning: '执行期异常', aiAction: '把 error 原样报告给用户；若为 Office.js 环境限制，按 error 文本判断', retry: false },

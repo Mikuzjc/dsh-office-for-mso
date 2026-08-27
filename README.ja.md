@@ -8,7 +8,7 @@
 あなた ──DSHセッション──▶ AI(agent) ──POST──▶ ブリッジサービス localhost:3000
                                                     │ コマンドキュー（host ルーティング）
                            Office アドイン（バックグラウンドで1秒毎ポーリング）
-                                                    │ Office.js 実行（34 アクション）
+                                                    │ Office.js 実行（36 アクション）
                                                     ▼
                               結果返却 ──▶ AI が取得 ──▶ あなたへ報告
 ```
@@ -103,7 +103,7 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 
 **ホットリロードの仕組み**：ペインはポーリングのたびに `/office/actions-version` を GET し、`actions.js` の mtime と比較。変更があればスクリプトを動的に再読み込みします。**`actions.js` を編集 → サーバー再起動 → 自動反映**。
 
-## 3. 能力マトリクス（34 アクション）
+## 3. 能力マトリクス（36 アクション）
 
 > `destructive=true` の操作は `args.dryRun` で影響をプレビュー可能（replace_all / remove_empty_paragraphs / delete_sheet で実装済み、他は AI 層で「先読み後書き」）。W=Word、E=Excel、P=PowerPoint。
 > **書き込み後の自動選択**（副作用ゼロ、選択のみ）：書き込みアクションは成功後に変更箇所を選択 —— `replace_all` は最後の変更 / `append_text`・`insert_paragraph` は挿入内容 / `write_range` は書き込み範囲 / `write_selection` はホストが選択を維持；複数箇所の同時選択は不可（Office.js は単一選択のみ）。
@@ -118,6 +118,8 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 | `replace_all` | W/E | 文書全体の検索置換 `{search, replace, dryRun?}` |
 | `append_text` | W | 文末に段落を追加 `{text}` |
 | `locate_select` | W/E | 位置を特定して選択（副作用ゼロ、内容/スタイルは変更しない）：`{text}` 最初の一致 / `{bookmark\|anchor}` / Excel `{range\|address}`（`sheet` 指定可）；`blinks>0` で点滅、既定は選択したまま保持 |
+| `get_document_info` | W/E/P | Common API ドキュメント情報：url / title / mode（読み取り専用判定）/ settings キー値（`keys` で正確に読み取り）——常に利用可能、Word.run 不要 |
+| `set_setting` | W/E/P | ドキュメント設定を永続化 `{key, value}`（ドキュメントと共に保存、セッションを跨いで読取可）——ドキュメントレベルの状態フラグ用 |
 
 ### Word グループ
 | action | 説明 |
@@ -179,6 +181,7 @@ copy "skills\office-bridge\SKILL.md" "$HOME\.agents\skills\office-bridge\"
 
 ## 5. セーフティガードレール
 
+- **書き込み前 re-read（メカニズムレベル）**：すべての上書き操作（書き込み/置換/削除/書式上書き）は実行前に現在状態を自動読み取り、記憶だけで上書きしません。確認モードは環境変数 `OFFICE_CONFIRM_MODE` で制御：**`ask`（デフォルト）** = re-read プレビューをペインで見た後、ユーザーが `confirm:true` で承認；**`auto`** = re-read 後に直接実行、結果に `previousState` を添付。変更後はサービス再起動（現在のモードは `GET /office/config` で確認可）
 - **破壊的操作の dryRun**：replace_all / remove_empty_paragraphs / delete_sheet は `dryRun` で影響プレビュー。AI 層は実行前にプレビュー
 - **画像段落保護**：空段落削除時、inlinePictures を含む段落はスキップ（過去にフローチャートを誤削除した事故を修正済み）
 - **文末段落保護**：Word の最後の段落（段落記号）は削除不可
@@ -253,6 +256,7 @@ powershell -ExecutionPolicy Bypass -File update.ps1   # git pull + サービス�
 | `confirm_required` | ask モードで承認が必要 | `result.preview` をユーザーに提示し、承認後 `confirm:true` 付きで再送 |
 | `rejected` | ペインでユーザーが拒否/承認タイムアウト | 操作を中止、**再送しない** |
 | `not_found` | 定位/検索対象が存在しない | 正直に「見つからない」と伝え、**同じ検索を再試行しない** |
+| `readonly` | ドキュメントが読み取り専用/閲覧モード、書き込み拒否 | 編集可能なコピーを保存するよう案内、**再試行しない** |
 | `requirement` / `unsupported` | 環境に API がない | 正直に伝え、成功したふりをしない |
 | `execution` | 実行時例外 | `error` をそのまま報告 |
 

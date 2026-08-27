@@ -906,6 +906,54 @@
     } catch (e) { return false; }
   }
 
+  // ================= Common API（Office.context.document，一直可用，无需 Word.run/Excel.run）=================
+
+  // 文档信息：url / title / mode（只读判断）/ settings（文档持久化 key-value）
+  async function getDocumentInfo(host, args) {
+    try {
+      const d = Office.context.document;
+      const mode = String(d.mode || '');
+      const out = {
+        host: String(Office.context.host || ''),
+        url: String(d.url || ''),
+        title: String(d.title || ''),
+        mode, // 'edit' | 'readOnly' | 'view'
+        readOnly: mode === 'readOnly' || mode === 'view',
+        settings: {},
+      };
+      const keys = args && Array.isArray(args.keys) ? args.keys.map(String) : null;
+      if (d.settings) {
+        if (keys && keys.length) {
+          for (const k of keys) {
+            try { out.settings[k] = d.settings.get(k); } catch (e) { out.settings[k] = undefined; }
+          }
+        } else {
+          // 无 keys 时尝试枚举宿主暴露的可枚举属性；多数宿主不暴露 → 提示用 keys 精确读取
+          try { for (const k in d.settings) { if (typeof d.settings[k] !== 'function') out.settings[k] = d.settings[k]; } } catch (e) { /* 枚举失败忽略 */ }
+          out.settingsNote = '未传 args.keys 时仅能枚举宿主暴露的属性；精确读取请传 keys 数组';
+        }
+      }
+      return okResult(out);
+    } catch (e) { return errResult('execution', String(e && e.message || e)); }
+  }
+
+  // 文档设置持久化：settings.set + saveAsync（随文档保存，跨会话可用）
+  async function setSetting(host, args) {
+    const key = args && args.key !== undefined ? String(args.key) : null;
+    if (!key) return errResult('bad_args', 'key required');
+    try {
+      const d = Office.context.document;
+      if (!d.settings) return errResult('requirement', 'settings API not available');
+      const value = args.value; // 任意 JSON 值
+      d.settings.set(key, value);
+      const saved = await new Promise((resolve) => {
+        d.settings.saveAsync((r) => resolve(r.status === Office.AsyncResultStatus.Succeeded));
+      });
+      if (!saved) return errResult('execution', 'settings.saveAsync failed');
+      return okResult({ key, saved: true, value });
+    } catch (e) { return errResult('execution', String(e && e.message || e)); }
+  }
+
   async function getEnvironment(host, args) {
     const base = {
       host: String(Office.context.host || ''),
@@ -1209,6 +1257,9 @@
     ppt_read_notes: { hosts: ['PowerPoint'], destructive: false, impl: readPptNotes },
     // 环境诊断
     get_environment: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: getEnvironment },
+    // Common API（Office.context.document，一直可用）
+    get_document_info: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: getDocumentInfo },
+    set_setting: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: setSetting },
     // 定位 + 选中（零副作用：只做选中/取消选中 UI 反馈，不改文档；blinks>0 才闪烁）
     locate_select: { hosts: ['Word', 'Excel'], destructive: false, impl: locateSelect },
   };
@@ -1228,6 +1279,15 @@
     if (!meta) return errResult('unknown_action', `unknown action: ${action}`);
     const host = String(Office.context.host || '');
     if (!meta.hosts.includes(host)) return errResult('unsupported_host', `${action} not supported in ${host}`);
+    // 只读文档保护（Common API mode 探测）：readOnly/view 模式拒绝覆盖类操作，明确告知原因而非执行失败
+    if (meta.destructive) {
+      try {
+        const m = String(Office.context.document.mode || '');
+        if (m === 'readOnly' || m === 'view') {
+          return errResult('readonly', `文档处于只读/查看模式（mode=${m}），覆盖类操作被拒绝；请另存为可编辑副本或切换编辑模式后重试`);
+        }
+      } catch (e) { /* 探测失败不拦截 */ }
+    }
     const run = () => Promise.resolve().then(() => meta.impl(host, args || {})).catch((e) => {
       const debug = (e && e.debugInfo) ? (' [debug] ' + JSON.stringify(e.debugInfo)) : '';
       return errResult('execution', String(e && e.message || e) + debug);

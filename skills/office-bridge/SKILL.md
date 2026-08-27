@@ -33,6 +33,7 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
    - `code: unknown_action` → 先查 capabilities 用正确的 action 名
    - `code: bad_args` → 按 error 文本修正参数（缺必填参数/非法值）后重发
    - `code: not_found` → 定位/查找目标不存在（书签、文本、命名区域）；如实告知用户，建议换关键词或换定位方式，**不要重试同一查找**
+   - `code: readonly` → 文档只读/查看模式，写操作被拒绝；告知用户另存为可编辑副本或切换编辑模式，**不要重试**
    - `code: confirm_required` → ask 模式覆盖操作：把 `result.preview` 展示给用户，确认后带 `confirm:true` 重发
    - `code: rejected` → 用户在窗格拒绝（或审批超时）；停止操作、尊重用户决定，**不要重发**
    - `code: requirement / unsupported` → 该 API 在此环境不可用，如实告知用户（绝不假装成功）
@@ -51,13 +52,14 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 - **查找**：`search`（Word，支持通配符）；**全文替换**：`replace_all`（**先 dryRun 预览**）
 - **改完自动选中**（内置约定，无需额外指令）：`replace_all`（Word）选中**最后一处**修改、`append_text` / `insert_paragraph` 选中插入内容、`write_range`（Excel）选中写入区域——结果里 `selected:true`。**多处无法同时选中**（Office.js 单选区），多处替换只选中最后一处示意
 - **定位选中**：`locate_select`（零副作用：只做选中，不改文档内容/样式/撤销栈）——定位器三选一 `{text: "片段"}`（Word/Excel 首个匹配）、`{bookmark|anchor: "名"}`（Word 书签/Excel 命名区域）、`{range|address: "A1:B5"}`（Excel 区域，可带 `sheet`）；`blinks` 默认 0 = 只选中保持，`blinks: 2-3` 才闪烁；定位不到返回 `not_found`（如 `text not found`），如实转告、不要重试
+- **Common API（一直可用，无需 Word.run）**：`get_document_info`（url / title / mode 只读判断 / settings 键值，`args.keys` 精确读）与 `set_setting`（`{key, value}` 文档设置持久化，随文档保存）——多文档识别、文档级状态标记（如"已 AI 处理"）用它
 
 ## 安全与边界
 
 - **🔒 覆盖类操作写前 re-read（机制级）**：以下属覆盖类——`write_selection` / `replace_all` / `remove_empty_paragraphs` / `delete_sheet` / `format_selection` / `write_range` / `format_range` / `rename_sheet` / `apply_sort` / `apply_filter` / `set_font` / `apply_style`。**无论何种模式，覆盖操作执行前都会自动读取当前状态（re-read），绝不凭记忆覆盖**。确认模式由执行器开关 `OFFICE_CONFIRM_MODE` 决定：
-  - **`auto`（默认）**：自动 re-read 后**直接执行**，结果附 `previousState`（被操作前的状态快照）。AI 应核验 `previousState` 与预期一致（找到自己在改什么），异常立即告知用户
-  - **`ask`**：re-read 后**必须用户确认**（`confirm: true`）才执行——发指令（无 confirm）拿预览 → 向用户展示 → 确认后带 confirm 重发。**审批时窗格会自动选中操作目标**帮用户看清改哪里：`replace_all` 选第一处命中、`insert_paragraph`/`append_text` 选中插入点（文末最后一段，`location: afterSelection` 时保持选区）、`write_range`/`format_range`（Excel）选目标区域
-  - 切换：桥接服务环境变量 `OFFICE_CONFIRM_MODE=ask`（或 `auto`），改后重启服务
+  - **`ask`（默认）**：re-read 后**必须用户确认**（`confirm: true`）才执行——发指令（无 confirm）拿预览 → 向用户展示 → 确认后带 confirm 重发。**审批时窗格会自动选中操作目标**帮用户看清改哪里：`replace_all` 选第一处命中、`insert_paragraph`/`append_text` 选中插入点（文末最后一段，`location: afterSelection` 时保持选区）、`write_range`/`format_range`（Excel）选目标区域
+  - **`auto`**：自动 re-read 后**直接执行**，结果附 `previousState`（被操作前的状态快照）。AI 应核验 `previousState` 与预期一致（找到自己在改什么），异常立即告知用户
+  - 切换：桥接服务环境变量 `OFFICE_CONFIRM_MODE=auto`（或 `ask`），改后重启服务
 - **破坏性操作 dryRun 预览**：`replace_all` / `remove_empty_paragraphs` / `delete_sheet` 的预览本身就是 dryRun（返回影响范围），确认时一并展示
 - **⚠️ 删空行有风险（实测踩坑）**：`remove_empty_paragraphs` 删除空段落可能**破坏文档的节/样式分隔**（Word 会因此自动重排小节、打乱格式）。执行前**必须 dryRun 预览 + 明确告知用户风险**；建议仅在"确实需要清理多余空行"且用户确认后执行，文档结构复杂（含分节符/多级标题）时宁可保守
 - **⚠️ 中文标点规范（写入时，高频坑）**：向文档写入**中文内容**时，标点必须用中文全角标点，**尤其引号不要弄成英式**：

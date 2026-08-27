@@ -8,7 +8,7 @@
 You ──DSH session──▶ AI(agent) ──POST──▶ Bridge service localhost:3000
                                               │ Command queue (host-routed)
                          Office add-in (background polling, 1s)
-                                              │ Office.js execution (34 actions)
+                                              │ Office.js execution (36 actions)
                                               ▼
                         Result returned ──▶ AI reads ──▶ Report to you
 ```
@@ -103,7 +103,7 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 
 **Hot-reload mechanism**: before each poll, the pane GETs `/office/actions-version` and compares against the mtime of `actions.js`; on change it dynamically reloads the script. **Edit `actions.js` → restart server → takes effect automatically**.
 
-## 3. Capability matrix (34 actions)
+## 3. Capability matrix (36 actions)
 
 > Operations with `destructive=true` support `args.dryRun` to preview the impact (implemented for replace_all / remove_empty_paragraphs / delete_sheet; others follow a read-then-write convention at the AI layer). W=Word, E=Excel, P=PowerPoint.
 > **Auto-select after writes** (zero side effects, selection only): write actions select the changed content on success — `replace_all` selects the last change / `append_text`, `insert_paragraph` select the inserted content / `write_range` selects the written range / `write_selection` keeps selection via the host; multiple disjoint changes can only select one range (Office.js single-selection limit).
@@ -118,6 +118,8 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 | `replace_all` | W/E | Find & replace across document `{search, replace, dryRun?}` |
 | `append_text` | W | Append paragraph at end `{text}` |
 | `locate_select` | W/E | Locate and select (zero side effects, no content/style changes): `{text}` first match / `{bookmark\|anchor}` / Excel `{range\|address}` (optional `sheet`); `blinks>0` to blink, default selects and holds |
+| `get_document_info` | W/E/P | Common API document info: url / title / mode (read-only check) / settings key-values (`keys` for precise reads) — always available, no Word.run needed |
+| `set_setting` | W/E/P | Persist a document setting `{key, value}` (saved with the document, readable across sessions) — doc-level state flags |
 
 ### Word group
 | action | Description |
@@ -179,6 +181,7 @@ Or create an `office-bridge` skill in the DSH settings panel's skill manager (co
 
 ## 5. Safety guardrails
 
+- **Write-first re-read (mechanism-level)**: every overwrite operation (write/replace/delete/format-overwrite) auto-reads the current state before executing — never overwrites from memory. Confirmation mode is controlled by the `OFFICE_CONFIRM_MODE` env var: **`ask` (default)** = user must confirm (`confirm:true`) in the pane after seeing the re-read preview; **`auto`** = re-read then execute directly, result carries `previousState` for verification. Restart the service after changing (`GET /office/config` shows the current mode)
 - **dryRun for destructive ops**: replace_all / remove_empty_paragraphs / delete_sheet support `dryRun` impact preview; the AI layer previews before executing
 - **Image paragraph protection**: empty-paragraph removal skips paragraphs containing inlinePictures (a flowchart was once deleted by accident — fixed)
 - **Final paragraph protection**: Word's last paragraph (paragraph mark) cannot be deleted
@@ -253,6 +256,7 @@ Every error returns `{ok:false, code, error}` (`error` is a human-readable reaso
 | `confirm_required` | approval needed (ask mode) | show `result.preview` to the user, resend with `confirm:true` after approval |
 | `rejected` | user rejected in the pane / approval timed out | stop, **do not resend** |
 | `not_found` | locate/search target does not exist | tell the user honestly, **do not retry the same lookup** |
+| `readonly` | document is read-only/view mode, writes rejected | tell the user to save an editable copy, **do not retry** |
 | `requirement` / `unsupported` | API missing in this environment | say so honestly, never pretend success |
 | `execution` | runtime exception | report the `error` verbatim |
 
