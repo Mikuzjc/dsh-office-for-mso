@@ -1161,15 +1161,30 @@
 
   // ===== 审批预选（selectTarget）：ask 确认模式下，预览时主动选中将要修改的内容 =====
   // 注意：Office.js 只能选中一个连续区域，"一次性多处"无法同时选中 —— 多处替换场景选第一处示意。
+  // 闪烁原因：审批面板弹出时 Word 窗口失焦，失焦选中的灰色高亮几乎不可见（看起来"只定位没选中"）；
+  //         预选后闪烁 3 次（选中→折叠→选中，零副作用只动选区），失焦也能一眼看到目标位置。
   async function selectReplaceFirst(host, args) {
     if (host !== 'Word' || !args.search) return;
+    const q = String(args.search);
+    const doSelect = () => Word.run(async (ctx) => {
+      const results = ctx.document.body.search(q, { matchCase: false, ignoreSpace: true });
+      results.load('length');
+      await ctx.sync();
+      if (results.items && results.items.length > 0) { results.items[0].select(); await ctx.sync(); }
+    });
+    const doCollapse = () => Word.run(async (ctx) => {
+      const sel = ctx.document.getSelection();
+      try { sel.collapse('start'); } catch (e) { try { sel.getRange('start').select(); } catch (e2) { /* 保持 */ } }
+      await ctx.sync();
+    });
     try {
-      await Word.run(async (ctx) => {
-        const results = ctx.document.body.search(String(args.search), { matchCase: false, ignoreSpace: true });
-        results.load('length');
-        await ctx.sync();
-        if (results.items && results.items.length > 0) { results.items[0].select(); await ctx.sync(); }
-      });
+      for (let i = 0; i < 3; i++) {
+        await doSelect();
+        await sleep(280);
+        await doCollapse();
+        await sleep(280);
+      }
+      await doSelect(); // 最后保持选中
     } catch (e) { /* 预选失败不阻塞审批 */ }
   }
   async function selectExcelTargetRange(host, args) {
@@ -1179,20 +1194,33 @@
     } catch (e) { /* 预选失败不阻塞审批 */ }
   }
   // 插入类（insert_paragraph / append_text）审批定位：选中插入点 = 文末最后一段（afterSelection 保持选区不动）
+  // 同样闪烁 3 次让用户看到插入点（失焦灰色选中不可见）
   async function selectWordInsertPoint(host, args) {
     if (host !== 'Word') return;
     if (args && args.location === 'afterSelection') return; // 插入点在选区后：保持当前选区，让用户看到自己的上下文
-    try {
-      await Word.run(async (ctx) => {
-        const paras = ctx.document.body.paragraphs;
-        paras.load('items');
+    const doSelect = () => Word.run(async (ctx) => {
+      const paras = ctx.document.body.paragraphs;
+      paras.load('items');
+      await ctx.sync();
+      const items = paras.items;
+      if (items && items.length) {
+        items[items.length - 1].getRange().select();
         await ctx.sync();
-        const items = paras.items;
-        if (items && items.length) {
-          items[items.length - 1].getRange().select();
-          await ctx.sync();
-        }
-      });
+      }
+    });
+    const doCollapse = () => Word.run(async (ctx) => {
+      const sel = ctx.document.getSelection();
+      try { sel.collapse('start'); } catch (e) { try { sel.getRange('start').select(); } catch (e2) { /* 保持 */ } }
+      await ctx.sync();
+    });
+    try {
+      for (let i = 0; i < 3; i++) {
+        await doSelect();
+        await sleep(280);
+        await doCollapse();
+        await sleep(280);
+      }
+      await doSelect(); // 最后保持选中
     } catch (e) { /* 定位失败不阻塞审批 */ }
   }
 
