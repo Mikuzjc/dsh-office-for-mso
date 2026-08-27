@@ -237,6 +237,27 @@ powershell -ExecutionPolicy Bypass -File update.ps1   # git pull + サービス�
 - `code: addin_offline` を受け取ったら**再試行せず**、ユーザーに案内：対象ドキュメントを開く → ホーム/開発者 → アドイン → 開発者アドイン → 「DSH Office 実行エンジン」ペインを開いて維持
 - ペインは操作実行中は開いたまま必須（リサイズ・移動は可、閉じるのは不可）
 
+## 10. エラーコード早見表（AI 側）
+
+すべてのエラーは `{ok:false, code, error}` で返ります（`error` は人間が読める理由）。完全な一覧（コードごとの AI 対処と再試行可否を含む）は常に `GET /office/errors` で取得できます：
+
+| code | 意味 | AI の対処 |
+|---|---|---|
+| `instance_required` | `instance` 不足（マルチドキュメントでは必須） | status で instanceId を取得して再送 |
+| `addin_offline` | ペイン未表示/オフライン | ユーザーにペインを開いてもらう、**再試行しない** |
+| `busy` | 直前のコマンドが実行中 | 少し待って再送 |
+| `timeout` | 90 秒以内に結果なし | status を確認；オンラインなら一度再試行、それでも駄目ならペインの再オープンを案内 |
+| `bad_json` / `bad_args` | ボディ/引数が不正 | `error` に従って修正して再送 |
+| `unknown_action` | action 名が存在しない | capabilities を確認して正しい名前を使う |
+| `unsupported_host` | このアプリでサポートされない action | 対応する action/アプリに切り替える |
+| `confirm_required` | ask モードで承認が必要 | `result.preview` をユーザーに提示し、承認後 `confirm:true` 付きで再送 |
+| `rejected` | ペインでユーザーが拒否/承認タイムアウト | 操作を中止、**再送しない** |
+| `not_found` | 定位/検索対象が存在しない | 正直に「見つからない」と伝え、**同じ検索を再試行しない** |
+| `requirement` / `unsupported` | 環境に API がない | 正直に伝え、成功したふりをしない |
+| `execution` | 実行時例外 | `error` をそのまま報告 |
+
+**「該当なし」はエラーではない**：`search` / `replace_all(dryRun)` でヒット 0 件は `ok:true + count:0`、`read_*`/`list_*` の空結果は空配列/空文字列で返ります——いずれも成功応答なので、AI は再試行せず「見つからなかった」と伝えます。
+
 ---
 
 *Microsoft 公式製品ではありません。`DSH` はコミュニティ AI ハーネスエコシステムであり、本プロジェクトは DSH と Microsoft Office を結ぶ独立したブリッジです。*

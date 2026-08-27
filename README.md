@@ -264,6 +264,27 @@ powershell -ExecutionPolicy Bypass -File update.ps1   # git pull + 自动重启�
 - 收到 `code: addin_offline` 时**不要重试**，应提醒用户：打开目标文档 → 开始/开发人员 → 加载项 → 开发人员加载项 → 打开「DSH Office 执行器」窗格并保持开启
 - 窗格必须保持开启才能执行操作（可调小/拖角落，但不可关闭）
 
+## 十、错误码速查（AI 侧）
+
+所有错误统一返回 `{ok:false, code, error}`（error 为人类可读中文原因），完整枚举可随时 `GET /office/errors` 获取（含每码的 AI 处理建议与是否可重试）：
+
+| code | 含义 | AI 处理 |
+|---|---|---|
+| `instance_required` | 缺 instance（多文档必须指定目标实例） | 查 status 拿 instanceId 重发 |
+| `addin_offline` | 窗格未开启/离线 | 提醒用户开窗格，**不要重试** |
+| `busy` | 上一条指令仍在执行 | 稍等重发 |
+| `timeout` | 90s 无结果 | 查 status；在线可重试一次，仍超时提醒重开窗格 |
+| `bad_json` / `bad_args` | 请求体/参数非法 | 按 error 修正后重发 |
+| `unknown_action` | action 名不存在 | 查 capabilities 用正确名称 |
+| `unsupported_host` | 该 action 不支持当前应用 | 换用支持的 action/应用 |
+| `confirm_required` | ask 模式需审批 | 展示 result.preview，确认后带 confirm:true 重发 |
+| `rejected` | 用户在窗格拒绝/审批超时 | 停止操作，**不要重发** |
+| `not_found` | 定位/查找目标不存在 | 如实告知用户，**不要重试同一查找** |
+| `requirement` / `unsupported` | 环境 API 缺失 | 如实告知，绝不假装成功 |
+| `execution` | 执行期异常 | 把 error 原样报告给用户 |
+
+**"无匹配"不是错误**：`search`/`replace_all(dryRun)` 无命中返回 `ok:true + count:0`，`read_*`/`list_*` 空内容返回空数组/空字符串——均非错误，AI 应如实告知"未找到"而非重试。
+
 ---
 
 *非微软官方产品。`DSH` 是社区 AI 工具箱生态；本项目是 DSH 与 Microsoft Office 之间的独立桥接。*

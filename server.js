@@ -67,6 +67,33 @@ const CAPABILITIES = [
   { name: 'locate_select', hosts: ['Word', 'Excel'], destructive: false, args: { bookmark: 'string 可选：Word 书签 / Excel 命名区域名', anchor: 'string 可选：同 bookmark', text: 'string 可选：定位首个匹配文本', range: 'string 可选(Excel)：A1:B5 或 Sheet!A1:B5', address: 'string 可选(Excel)：同 range', sheet: 'string 可选(Excel)：指定工作表', blinks: 'number 可选：闪烁次数(默认0=只选中保持,1-5才闪)', interval: 'number 可选：间隔ms(默认300,100-800)' } },
 ];
 
+// ---- 错误码注册表（供 AI 层 GET /office/errors 发现：code/含义/应如何处理/是否可重试）----
+// layer: server=桥接服务入口校验；addin=加载项执行。retry: true=修好后可重发；false=不要无脑重试。
+const ERROR_CODES = [
+  { code: 'instance_required', layer: 'server', meaning: '指令缺少 instance 参数（多文档必须指定目标实例）', aiAction: 'GET /office/status 查看 instances（按 docUrl 识别目标文档），带 instance 重发', retry: true },
+  { code: 'addin_offline', layer: 'server', meaning: '目标加载项窗格未开启或已离线', aiAction: '提醒用户打开对应文档的「DSH Office 执行器」窗格；不要重试', retry: false },
+  { code: 'busy', layer: 'server', meaning: '上一条指令仍在执行中（队列占用）', aiAction: '稍等片刻后重发同一条指令', retry: true },
+  { code: 'bad_json', layer: 'server', meaning: '请求体不是合法 JSON', aiAction: '检查 POST body 格式后重发', retry: true },
+  { code: 'bad_args', layer: 'server|addin', meaning: '参数缺失或非法（如缺 action、host 非法、缺必填参数）', aiAction: '按 error 文本修正参数后重发', retry: true },
+  { code: 'timeout', layer: 'server', meaning: '指令发出后超时未返回（默认 90s）', aiAction: 'GET /office/status 确认窗格在线；在线可重试一次，仍超时提醒用户重开窗格', retry: true },
+  { code: 'unknown_action', layer: 'addin', meaning: 'action 名称不存在', aiAction: 'GET /office/capabilities 查看支持的 action 名，用正确名称重发', retry: true },
+  { code: 'unsupported_host', layer: 'addin', meaning: '该 action 不支持当前应用（如 search 仅 Word）', aiAction: '按 error 文本换用支持的 action 或换应用', retry: true },
+  { code: 'confirm_required', layer: 'addin', meaning: 'ask 模式下覆盖类操作需用户审批', aiAction: '把 result.preview 展示给用户，用户确认后带 confirm:true 重发；用户拒绝则停止', retry: true },
+  { code: 'rejected', layer: 'addin', meaning: '用户在窗格拒绝了该操作（或审批超时视为拒绝）', aiAction: '停止该操作、尊重用户决定，可询问替代方案；不要重发', retry: false },
+  { code: 'not_found', layer: 'addin', meaning: '定位/查找目标不存在（书签、文本、命名区域、区域地址等）', aiAction: '把「未找到」如实告知用户，不要重试同一查找；可建议换关键词或换定位方式', retry: false },
+  { code: 'requirement', layer: 'addin', meaning: '当前 Office 环境缺少所需 API（如批注 API 不可用）', aiAction: '如实告知用户该功能在当前环境不可用，绝不假装成功', retry: false },
+  { code: 'unsupported', layer: 'addin', meaning: '该参数组合在当前环境不支持（如 Excel replace_all 的 dryRun）', aiAction: '按 error 文本换用支持的调用方式', retry: true },
+  { code: 'execution', layer: 'addin', meaning: '执行期异常', aiAction: '把 error 原样报告给用户；若为 Office.js 环境限制，按 error 文本判断', retry: false },
+];
+
+// ---- 结果语义约定（"无匹配"不是错误：只读/查找类空结果 = ok:true + count:0/空数组）----
+const RESULT_SEMANTICS = [
+  { scope: 'search / replace_all(dryRun)', behavior: '无命中返回 ok:true + count:0（非错误）', aiAction: '把「未找到」告知用户，不要重试' },
+  { scope: 'read_* / list_* / read_range', behavior: '空内容返回 ok:true + 空数组/空字符串（非错误）', aiAction: '正常处理空结果即可' },
+  { scope: 'read_selection（Word 无选区）', behavior: '返回光标上下文 "左 | 右"（| = 光标位置），非错误', aiAction: '把它当作光标位置信息使用' },
+  { scope: '覆盖类写入（confirm 后执行）', behavior: '成功结果附 previousState/afterState/document', aiAction: '用 afterState/document 核验写入结果，不盲目信任' },
+];
+
 // ---- 指令队列（一次只处理一条，先到先得）----
 let pending = null;        // { commandId, action, args, host, instance, resolve, timer }  host/instance: null = 任意
 const heartbeats = {};     // host -> 最近心跳时间戳（兼容旧版：按 host 摘要）
@@ -190,16 +217,16 @@ const server = http.createServer(async (req, res) => {
   // POST /office/command —— DSH 侧发指令，同步等待结果；body.host 可选（Word/Excel/PowerPoint），缺省=任意文档
   if (req.method === 'POST' && p === '/office/command') {
     let body;
-    try { body = await readBody(req); } catch { sendJson(res, 400, { ok: false, error: 'bad json' }); return; }
-    if (!body.action || typeof body.action !== 'string') { sendJson(res, 400, { ok: false, error: 'action required' }); return; }
+    try { body = await readBody(req); } catch { sendJson(res, 400, { ok: false, code: 'bad_json', error: 'bad json' }); return; }
+    if (!body.action || typeof body.action !== 'string') { sendJson(res, 400, { ok: false, code: 'bad_args', error: 'action required' }); return; }
     const host = body.host && typeof body.host === 'string' ? body.host : null;
-    if (host && !VALID_HOSTS.includes(host)) { sendJson(res, 400, { ok: false, error: `invalid host: ${host} (valid: ${VALID_HOSTS.join('/')})` }); return; }
+    if (host && !VALID_HOSTS.includes(host)) { sendJson(res, 400, { ok: false, code: 'bad_args', error: `invalid host: ${host} (valid: ${VALID_HOSTS.join('/')})` }); return; }
     const instance = body.instance && typeof body.instance === 'string' ? body.instance : null; // 必填：指定加载项实例（多文档精确路由，防误执行）
     if (!instance) {
       sendJson(res, 200, { ok: false, code: 'instance_required', error: '必须指定加载项实例（instanceId）：先 GET /office/status 查看 instances（按 docUrl 识别目标文档），带 instance 重发；多文档时未指定实例会导致指令被错误文档执行' });
       return;
     }
-    if (pending) { sendJson(res, 409, { ok: false, error: 'a command is already pending' }); return; }
+    if (pending) { sendJson(res, 409, { ok: false, code: 'busy', error: 'a command is already pending (previous command still executing); retry shortly' }); return; }
     // 快速失败：目标 host/instance 窗格不在线时立即返回明确错误（而不是傻等 90s 超时）
     const now = Date.now();
     const OFFLINE_MS = 15000; // 心跳每 5s 一次，15s 无心跳视为窗格离线
@@ -221,7 +248,7 @@ const server = http.createServer(async (req, res) => {
     }
     const commandId = crypto.randomUUID();
     const result = await new Promise((resolve) => {
-      const timer = setTimeout(() => resolve({ ok: false, error: 'timeout: no add-in heartbeat or execution', timeout: true }), COMMAND_TIMEOUT_MS);
+      const timer = setTimeout(() => resolve({ ok: false, code: 'timeout', error: 'timeout: no add-in heartbeat or execution', timeout: true }), COMMAND_TIMEOUT_MS);
       pending = { commandId, action: body.action, args: body.args || {}, host, instance, resolve: (r) => { clearTimeout(timer); resolve(r); } };
     });
     if (pending && pending.commandId === commandId) pending = null; // 清理（超时路径）
@@ -244,7 +271,7 @@ const server = http.createServer(async (req, res) => {
   // POST /office/result —— 加载项回传结果
   if (req.method === 'POST' && p === '/office/result') {
     let body;
-    try { body = await readBody(req); } catch { sendJson(res, 400, { ok: false, error: 'bad json' }); return; }
+    try { body = await readBody(req); } catch { sendJson(res, 400, { ok: false, code: 'bad_json', error: 'bad json' }); return; }
     if (pending && pending.commandId === body.commandId) {
       const r = pending.resolve;
       pending = null;
@@ -325,7 +352,7 @@ const server = http.createServer(async (req, res) => {
       CONFIRM_MODE = body.confirmMode;
       sendJson(res, 200, { ok: true, confirmMode: CONFIRM_MODE });
     } else {
-      sendJson(res, 400, { ok: false, error: 'confirmMode must be "auto" or "ask"' });
+      sendJson(res, 400, { ok: false, code: 'bad_args', error: 'confirmMode must be "auto" or "ask"' });
     }
     return;
   }
@@ -333,6 +360,12 @@ const server = http.createServer(async (req, res) => {
   // GET /office/capabilities —— 能力发现：返回 action 注册表（名称/平台/是否破坏性/参数说明）
   if (req.method === 'GET' && p === '/office/capabilities') {
     sendJson(res, 200, { version: '1.1.0', actions: CAPABILITIES });
+    return;
+  }
+
+  // GET /office/errors —— 错误码发现：返回错误码枚举（code/含义/AI 应如何处理/是否可重试）+ 结果语义约定（"无匹配"≠错误）
+  if (req.method === 'GET' && p === '/office/errors') {
+    sendJson(res, 200, { version: '1.0.0', codes: ERROR_CODES, semantics: RESULT_SEMANTICS });
     return;
   }
 

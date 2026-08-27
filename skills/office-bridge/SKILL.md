@@ -23,11 +23,18 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 3. **发指令**：`POST /office/command`，body：`{ "action": "...", "instance": "<instanceId>", "args": {...} }`
    - **`instance` 必填（强制）**：先按用户目标文档的 docUrl 匹配 `instances` 里的 instanceId 带上；**不带 instance 会被拒绝**（`code: instance_required`）——多文档时未指定实例会导致指令被错误文档执行（曾发生：测试文件激活时正式论文收到审批）
    - `host` 可附带（Word/Excel/PowerPoint，校验用）；指令一次一条、串行等待结果（超时 90s）
-4. **处理结果/错误**：
+4. **处理结果/错误**（完整错误码表见 `GET /office/errors`）：
    - `ok: true` → 用 `result` 完成用户任务
+   - **无匹配不是错误**：`search` / `replace_all(dryRun)` 无命中返回 `ok:true + count:0`；`read_*`/`list_*` 空内容返回空数组/空字符串——**如实告知用户"未找到"，不要重试**
    - `code: instance_required` → 先查 status 拿 instanceId 再重发
    - `code: addin_offline` → 窗格未开启，提醒用户开窗格，**不要重试**
+   - `code: busy` → 上一条指令仍在执行，稍等重发
+   - `code: timeout` → 90s 无结果；查 status 确认窗格在线，在线可重试一次，仍超时提醒用户重开窗格
    - `code: unknown_action` → 先查 capabilities 用正确的 action 名
+   - `code: bad_args` → 按 error 文本修正参数（缺必填参数/非法值）后重发
+   - `code: not_found` → 定位/查找目标不存在（书签、文本、命名区域）；如实告知用户，建议换关键词或换定位方式，**不要重试同一查找**
+   - `code: confirm_required` → ask 模式覆盖操作：把 `result.preview` 展示给用户，确认后带 `confirm:true` 重发
+   - `code: rejected` → 用户在窗格拒绝（或审批超时）；停止操作、尊重用户决定，**不要重发**
    - `code: requirement / unsupported` → 该 API 在此环境不可用，如实告知用户（绝不假装成功）
    - `code: execution` → 把错误原样报告给用户
 
@@ -43,7 +50,7 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 - **格式化**：`format_selection`（选区）/ `format_range`（Excel 区域）/ `set_font`（Word 全文）/ `apply_style`（Word 内置样式）
 - **查找**：`search`（Word，支持通配符）；**全文替换**：`replace_all`（**先 dryRun 预览**）
 - **改完自动选中**（内置约定，无需额外指令）：`replace_all`（Word）选中**最后一处**修改、`append_text` / `insert_paragraph` 选中插入内容、`write_range`（Excel）选中写入区域——结果里 `selected:true`。**多处无法同时选中**（Office.js 单选区），多处替换只选中最后一处示意
-- **定位选中**：`locate_select`（零副作用：只做选中，不改文档内容/样式/撤销栈）——定位器三选一 `{text: "片段"}`（Word/Excel 首个匹配）、`{bookmark|anchor: "名"}`（Word 书签/Excel 命名区域）、`{range|address: "A1:B5"}`（Excel 区域，可带 `sheet`）；`blinks` 默认 0 = 只选中保持，`blinks: 2-3` 才闪烁；定位不到返回 `execution: not found`，如实转告
+- **定位选中**：`locate_select`（零副作用：只做选中，不改文档内容/样式/撤销栈）——定位器三选一 `{text: "片段"}`（Word/Excel 首个匹配）、`{bookmark|anchor: "名"}`（Word 书签/Excel 命名区域）、`{range|address: "A1:B5"}`（Excel 区域，可带 `sheet`）；`blinks` 默认 0 = 只选中保持，`blinks: 2-3` 才闪烁；定位不到返回 `not_found`（如 `text not found`），如实转告、不要重试
 
 ## 安全与边界
 

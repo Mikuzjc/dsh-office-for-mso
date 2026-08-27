@@ -237,6 +237,27 @@ powershell -ExecutionPolicy Bypass -File update.ps1   # git pull + auto-restart 
 - On `code: addin_offline`, **do not retry** — remind the user: open the target document → Home/Developer → Add-ins → Developer Add-ins → open the "DSH Office Executor" pane and keep it open
 - The pane must stay open for operations to run (it can be resized/dragged, but not closed)
 
+## 10. Error codes at a glance (AI side)
+
+Every error returns `{ok:false, code, error}` (`error` is a human-readable reason); the full enumeration — including per-code AI handling advice and whether retrying is allowed — is always available via `GET /office/errors`:
+
+| code | meaning | AI handling |
+|---|---|---|
+| `instance_required` | missing `instance` (required for multi-document routing) | check status, get the instanceId, resend |
+| `addin_offline` | pane not open / offline | ask the user to open the pane, **do not retry** |
+| `busy` | previous command still running | wait briefly and resend |
+| `timeout` | no result within 90s | check status; retry once if online, otherwise ask the user to reopen the pane |
+| `bad_json` / `bad_args` | invalid body / invalid args | fix per `error` and resend |
+| `unknown_action` | action name does not exist | check capabilities and use the correct name |
+| `unsupported_host` | action not supported in this host | use a supported action/application |
+| `confirm_required` | approval needed (ask mode) | show `result.preview` to the user, resend with `confirm:true` after approval |
+| `rejected` | user rejected in the pane / approval timed out | stop, **do not resend** |
+| `not_found` | locate/search target does not exist | tell the user honestly, **do not retry the same lookup** |
+| `requirement` / `unsupported` | API missing in this environment | say so honestly, never pretend success |
+| `execution` | runtime exception | report the `error` verbatim |
+
+**"No match" is not an error**: `search` / `replace_all(dryRun)` with zero hits return `ok:true + count:0`, and empty `read_*` / `list_*` results return empty arrays/strings — all are successful responses; the AI should tell the user "not found" instead of retrying.
+
 ---
 
 *Not an official Microsoft product. `DSH` is a community AI-harness ecosystem; this project is an independent bridge between DSH and Microsoft Office.*
