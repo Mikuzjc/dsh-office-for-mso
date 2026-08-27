@@ -1309,10 +1309,10 @@
       }
       return Promise.resolve(r);
     };
-    // 覆盖类操作：先取确认模式
+    // 覆盖类操作：先取确认模式（缺省 ask=审批，与服务端默认一致；拉取失败也兜底 ask，绝不悄悄回退 auto）
     const modeP = window.__CONFIRM_MODE__ !== undefined
       ? Promise.resolve(window.__CONFIRM_MODE__)
-      : fetch('/office/config').then((r) => r.json()).then((c) => { window.__CONFIRM_MODE__ = (c && c.confirmMode) || 'auto'; return window.__CONFIRM_MODE__; }).catch(() => { window.__CONFIRM_MODE__ = 'auto'; return 'auto'; });
+      : fetch('/office/config').then((r) => r.json()).then((c) => { window.__CONFIRM_MODE__ = (c && c.confirmMode) || 'ask'; return window.__CONFIRM_MODE__; }).catch(() => { window.__CONFIRM_MODE__ = 'ask'; return 'ask'; });
     if (meta.destructive && args && args.confirm !== true) {
       if (!meta.preview) return errResult('confirm_required', `覆盖类操作 ${action} 需先预览确认（confirm:true）`);
       return modeP.then((mode) => Promise.resolve(meta.preview(host, args)).then((p) => {
