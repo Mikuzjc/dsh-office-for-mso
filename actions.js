@@ -1180,9 +1180,9 @@
     try {
       for (let i = 0; i < 3; i++) {
         await doSelect();
-        await sleep(280);
+        await sleep(400);
         await doCollapse();
-        await sleep(280);
+        await sleep(400);
       }
       await doSelect(); // 最后保持选中
     } catch (e) { /* 预选失败不阻塞审批 */ }
@@ -1216,9 +1216,9 @@
     try {
       for (let i = 0; i < 3; i++) {
         await doSelect();
-        await sleep(280);
+        await sleep(400);
         await doCollapse();
-        await sleep(280);
+        await sleep(400);
       }
       await doSelect(); // 最后保持选中
     } catch (e) { /* 定位失败不阻塞审批 */ }

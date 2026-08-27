@@ -295,7 +295,6 @@ async function locateInsertionPoint(cmd) {
 async function showApproval(cmd) {
   approvalActive = true;
   const meta = (window.__ACTIONS__ || {})[cmd.action] || {};
-  await locateInsertionPoint(cmd); // 审批中：先把光标移到将操作的位置
   const previewP = (meta.preview
     ? Promise.resolve(meta.preview(hostName(), cmd.args || {}))
     : Promise.resolve(okResult(null))
@@ -303,6 +302,9 @@ async function showApproval(cmd) {
   const p = await previewP;
   approvalPending = { cmd, preview: p.ok ? p.result : null, meta };
   renderApproval();
+  // 预选闪烁必须放在审批面板弹出之后：闪烁在面板之前发生的话，用户看到面板时闪烁早已结束（"没闪"）
+  // 面板已显示 → 再闪烁定位目标（不阻塞审批等待；用户点击确认时闪烁可能未结束，无副作用）
+  locateInsertionPoint(cmd).catch(() => {});
   // 等待用户在窗格点击（确认/拒绝）；审批挂起 120s 未操作 → 自动解除（视为拒绝），防 poll 永久卡死
   const decision = await new Promise((resolve) => {
     approvalPending.resolve = resolve;
