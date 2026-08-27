@@ -56,7 +56,7 @@ DSH 会话(AI) --POST /office/command--> 桥接服务 localhost:3000 --轮询-->
 
 - **🔒 覆盖类操作写前 re-read（机制级）**：以下属覆盖类——`write_selection` / `replace_all` / `remove_empty_paragraphs` / `delete_sheet` / `format_selection` / `write_range` / `format_range` / `rename_sheet` / `apply_sort` / `apply_filter` / `set_font` / `apply_style`。**无论何种模式，覆盖操作执行前都会自动读取当前状态（re-read），绝不凭记忆覆盖**。确认模式由执行器开关 `OFFICE_CONFIRM_MODE` 决定：
   - **`auto`（默认）**：自动 re-read 后**直接执行**，结果附 `previousState`（被操作前的状态快照）。AI 应核验 `previousState` 与预期一致（找到自己在改什么），异常立即告知用户
-  - **`ask`**：re-read 后**必须用户确认**（`confirm: true`）才执行——发指令（无 confirm）拿预览 → 向用户展示 → 确认后带 confirm 重发
+  - **`ask`**：re-read 后**必须用户确认**（`confirm: true`）才执行——发指令（无 confirm）拿预览 → 向用户展示 → 确认后带 confirm 重发。**审批时窗格会自动选中操作目标**帮用户看清改哪里：`replace_all` 选第一处命中、`insert_paragraph`/`append_text` 选中插入点（文末最后一段，`location: afterSelection` 时保持选区）、`write_range`/`format_range`（Excel）选目标区域
   - 切换：桥接服务环境变量 `OFFICE_CONFIRM_MODE=ask`（或 `auto`），改后重启服务
 - **破坏性操作 dryRun 预览**：`replace_all` / `remove_empty_paragraphs` / `delete_sheet` 的预览本身就是 dryRun（返回影响范围），确认时一并展示
 - **⚠️ 删空行有风险（实测踩坑）**：`remove_empty_paragraphs` 删除空段落可能**破坏文档的节/样式分隔**（Word 会因此自动重排小节、打乱格式）。执行前**必须 dryRun 预览 + 明确告知用户风险**；建议仅在"确实需要清理多余空行"且用户确认后执行，文档结构复杂（含分节符/多级标题）时宁可保守

@@ -1130,6 +1130,23 @@
       await Excel.run(async (ctx) => { excelRange(ctx, String(args.address)).select(); await ctx.sync(); });
     } catch (e) { /* 预选失败不阻塞审批 */ }
   }
+  // 插入类（insert_paragraph / append_text）审批定位：选中插入点 = 文末最后一段（afterSelection 保持选区不动）
+  async function selectWordInsertPoint(host, args) {
+    if (host !== 'Word') return;
+    if (args && args.location === 'afterSelection') return; // 插入点在选区后：保持当前选区，让用户看到自己的上下文
+    try {
+      await Word.run(async (ctx) => {
+        const paras = ctx.document.body.paragraphs;
+        paras.load('items');
+        await ctx.sync();
+        const items = paras.items;
+        if (items && items.length) {
+          items[items.length - 1].getRange().select();
+          await ctx.sync();
+        }
+      });
+    } catch (e) { /* 定位失败不阻塞审批 */ }
+  }
 
   // ================= 注册表 =================
 
@@ -1160,12 +1177,12 @@
     read_document: { hosts: ['Word', 'Excel', 'PowerPoint'], destructive: false, impl: readDocument },
     read_styles: { hosts: ['Word', 'Excel'], destructive: false, impl: readStyles },
     replace_all: { hosts: ['Word', 'Excel'], destructive: true, impl: replaceAll, selectTarget: selectReplaceFirst },
-    append_text: { hosts: ['Word'], destructive: true, impl: appendText },
+    append_text: { hosts: ['Word'], destructive: true, impl: appendText, selectTarget: selectWordInsertPoint },
     // Word
     read_tables: { hosts: ['Word'], destructive: false, impl: readTables },
     set_font: { hosts: ['Word'], destructive: true, impl: setFont },
     remove_empty_paragraphs: { hosts: ['Word'], destructive: true, impl: removeEmptyParagraphs },
-    insert_paragraph: { hosts: ['Word'], destructive: true, impl: insertParagraph },
+    insert_paragraph: { hosts: ['Word'], destructive: true, impl: insertParagraph, selectTarget: selectWordInsertPoint },
     insert_table: { hosts: ['Word'], destructive: false, impl: insertTable },
     insert_image: { hosts: ['Word'], destructive: false, impl: insertImage },
     apply_style: { hosts: ['Word'], destructive: true, impl: applyStyle },
